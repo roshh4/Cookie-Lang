@@ -31,10 +31,11 @@ char* concat3(const char* s1, const char* s2, const char* s3) {
 
 %token INT PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token <str> NUMBER IDENTIFIER
-%token PLUS MINUS
+%token PLUS MINUS MULTIPLY DIVIDE  // Added DIVIDE token
 
-/***** Added operator precedence declaration to resolve shift/reduce conflicts *****/
+/***** Added operator precedence declaration *****/
 %left PLUS MINUS
+%left MULTIPLY DIVIDE  // Multiplication and division have higher precedence
 
 %type <str> expression primary
 
@@ -85,6 +86,16 @@ expression:
       }
     | expression MINUS expression {
           $$ = concat3($1, " - ", $3);
+          free($1);
+          free($3);
+      }
+    | expression MULTIPLY expression {
+          $$ = concat3($1, " * ", $3);
+          free($1);
+          free($3);
+      }
+    | expression DIVIDE expression {  // Added division handling
+          $$ = concat3($1, " / ", $3);
           free($1);
           free($3);
       }

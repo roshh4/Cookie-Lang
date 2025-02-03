@@ -9,15 +9,17 @@
 %%
 "int"       { return INT; }
 "print"     { return PRINT; }
-"loop"      { return LOOP; }  // New: recognize "loop" keyword
+"loop"      { return LOOP; }
 "="         { return ASSIGN; }
 ";"         { return SEMICOLON; }
 "("         { return LPAREN; }
 ")"         { return RPAREN; }
-"{"         { return LBRACE; }  // New: recognize "{"
-"}"         { return RBRACE; }  // New: recognize "}"
-"\+"       { return PLUS; }
-"-"        { return MINUS; }
+"{"         { return LBRACE; }
+"}"         { return RBRACE; }
+"+"         { return PLUS; }
+"-"         { return MINUS; }
+"*"         { return MULTIPLY; }
+"/"         { return DIVIDE; }   // Added rule for division
 [0-9]+      { yylval.str = strdup(yytext); return NUMBER; }
 [a-zA-Z]+   { yylval.str = strdup(yytext); return IDENTIFIER; }
 [ \t\n]     ;  // Ignore whitespace
