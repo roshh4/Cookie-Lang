@@ -1,6 +1,10 @@
 int a = 3 + 1;
 int b = 4 - 3;
+int c = 2 * 2;
+int d = 4 / 2;
 loop 2 {
     print(a);
 }
 print(b);
+print(c);
+print(d);
