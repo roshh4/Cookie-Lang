@@ -18,8 +18,7 @@
 "}"         { return RBRACE; }
 "+"         { return PLUS; }
 "-"         { return MINUS; }
-"*"         { return MULTIPLY; }
-"/"         { return DIVIDE; }   // Added rule for division
+"*"         { return MULTIPLY; }   // Added rule for multiplication
 [0-9]+      { yylval.str = strdup(yytext); return NUMBER; }
 [a-zA-Z]+   { yylval.str = strdup(yytext); return IDENTIFIER; }
 [ \t\n]     ;  // Ignore whitespace

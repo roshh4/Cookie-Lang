@@ -2,128 +2,97 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
+#include "ast.h"
 
-typedef struct {
-    char *name;
-} Symbol;
-
-Symbol symbol_table[100];
-int symbol_count = 0;
+// Global pointer to the entire program AST.
+ProgramAST *TheAST = new ProgramAST();
 
 extern int yylex();
-void yyerror(const char *s);
-
-/* Helper: Concatenate three strings */
-char* concat3(const char* s1, const char* s2, const char* s3) {
-    int len = strlen(s1) + strlen(s2) + strlen(s3) + 1;
-    char* result = malloc(len);
-    if (!result) { fprintf(stderr, "Out of memory\n"); exit(1); }
-    strcpy(result, s1);
-    strcat(result, s2);
-    strcat(result, s3);
-    return result;
-}
+void yyerror(const char *s) { fprintf(stderr, "Error: %s\n", s); }
 %}
 
 %union {
-    char* str;
+    int num;                 // for NUMBER tokens
+    char* id;                // for IDENTIFIER tokens
+    ExprAST* expr;           // for expressions
+    StmtAST* stmt;           // for statements
+    std::vector<StmtAST*>* stmtList;  // for lists of statements
 }
 
 %token INT PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
-%token <str> NUMBER IDENTIFIER
-%token PLUS MINUS MULTIPLY DIVIDE  // Added DIVIDE token
+%token PLUS MINUS MULTIPLY DIVIDE
+%token <num> NUMBER
+%token <id> IDENTIFIER
 
-/***** Added operator precedence declaration *****/
 %left PLUS MINUS
-%left MULTIPLY DIVIDE  // Multiplication and division have higher precedence
+%left MULTIPLY DIVIDE
 
-%type <str> expression primary
+%type <expr> expression primary
+%type <stmt> statement
+%type <stmtList> statements
 
 %%
 
 program:
-    statements
+    statements {
+        for (StmtAST *S : *$1)
+            TheAST->Statements.push_back(S);
+        delete $1;
+    }
     ;
 
 statements:
-    statement
-    | statements statement
+    /* empty */ { $$ = new std::vector<StmtAST*>(); }
+    | statements statement { $$ = $1; $$->push_back($2); }
     ;
 
 statement:
     INT IDENTIFIER ASSIGN expression SEMICOLON {
-        printf("int %s = %s;\n", $2, $4);
-        symbol_table[symbol_count].name = strdup($2);
-        symbol_count++;
+        $$ = new VarDeclAST(std::string($2), $4);
         free($2);
-        free($4);
     }
     | PRINT LPAREN expression RPAREN SEMICOLON {
-        int found = 0;
-        /* If the expression is a simple identifier, verify it exists */
-        for (int i = 0; i < symbol_count; i++) {
-            if (strcmp(symbol_table[i].name, $3) == 0) found = 1;
-        }
-        if (!found) yyerror("Undefined variable");
-        printf("std::cout << %s << \"\\n\";\n", $3);
-        free($3);
+        $$ = new PrintAST($3);
     }
-    // Loop with mid-rule actions
-    | LOOP NUMBER LBRACE {
-        printf("for (int _loop = 0; _loop < %s; _loop++) {\n", $2);
-        free($2);
-    }
-    statements RBRACE {
-        printf("}\n");
+    | LOOP expression LBRACE statements RBRACE {
+        $$ = new LoopAST($2, *$4);
+        delete $4;
     }
     ;
 
 expression:
       expression PLUS expression {
-          $$ = concat3($1, " + ", $3);
-          free($1);
-          free($3);
+          $$ = new BinaryExprAST('+', $1, $3);
       }
     | expression MINUS expression {
-          $$ = concat3($1, " - ", $3);
-          free($1);
-          free($3);
+          $$ = new BinaryExprAST('-', $1, $3);
       }
     | expression MULTIPLY expression {
-          $$ = concat3($1, " * ", $3);
-          free($1);
-          free($3);
+          $$ = new BinaryExprAST('*', $1, $3);
       }
-    | expression DIVIDE expression {  // Added division handling
-          $$ = concat3($1, " / ", $3);
-          free($1);
-          free($3);
+    | expression DIVIDE expression {
+          $$ = new BinaryExprAST('/', $1, $3);
       }
-    | primary {
-          $$ = $1;
-      }
+    | primary { $$ = $1; }
     ;
 
 primary:
-      NUMBER           { $$ = $1; }
-    | IDENTIFIER       { $$ = $1; }
-    | LPAREN expression RPAREN {
-          $$ = concat3("(", $2, ")");
-          free($2);
-      }
+      NUMBER { $$ = new NumberExprAST($1); }
+    | IDENTIFIER { $$ = new VariableExprAST(std::string($1)); free($1); }
+    | LPAREN expression RPAREN { $$ = $2; }
     ;
 
 %%
 
-void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s);
-}
-
 int main() {
-    printf("#include <iostream>\n\n");
-    printf("int main() {\n");
-    yyparse();
-    printf("return 0;\n");
-    printf("}\n");
-    return 0;
+    if(yyparse() == 0) {
+        if (TheAST->codegen() == nullptr) {
+            fprintf(stderr, "Error generating IR\n");
+            return 1;
+        }
+        TheModule->print(llvm::outs(), nullptr);
+        return 0;
+    }
+    return 1;
 }
