@@ -2,97 +2,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vector>
 #include "ast.h"
-
-// Global pointer to the entire program AST.
-ProgramAST *TheAST = new ProgramAST();
-
 extern int yylex();
-void yyerror(const char *s) { fprintf(stderr, "Error: %s\n", s); }
+void yyerror(const char *s);
+ASTNode *root;  // Global AST root
 %}
 
+%code requires {
+  #include "ast.h"
+}
+
 %union {
-    int num;                 // for NUMBER tokens
-    char* id;                // for IDENTIFIER tokens
-    ExprAST* expr;           // for expressions
-    StmtAST* stmt;           // for statements
-    std::vector<StmtAST*>* stmtList;  // for lists of statements
+    char* str;
+    ASTNode* node;
 }
 
 %token INT PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
+%token <str> NUMBER IDENTIFIER
 %token PLUS MINUS MULTIPLY DIVIDE
-%token <num> NUMBER
-%token <id> IDENTIFIER
+
+%type <node> expression primary statement statements
 
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 
-%type <expr> expression primary
-%type <stmt> statement
-%type <stmtList> statements
-
 %%
 
 program:
-    statements {
-        for (StmtAST *S : *$1)
-            TheAST->Statements.push_back(S);
-        delete $1;
-    }
+    statements { root = $1; }
     ;
 
 statements:
-    /* empty */ { $$ = new std::vector<StmtAST*>(); }
-    | statements statement { $$ = $1; $$->push_back($2); }
+    statement { $$ = $1; }
+    | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
 statement:
     INT IDENTIFIER ASSIGN expression SEMICOLON {
-        $$ = new VarDeclAST(std::string($2), $4);
-        free($2);
+        $$ = createASTNode("ASSIGN", $2, $4, NULL);
     }
     | PRINT LPAREN expression RPAREN SEMICOLON {
-        $$ = new PrintAST($3);
+        $$ = createASTNode("PRINT", NULL, $3, NULL);
     }
-    | LOOP expression LBRACE statements RBRACE {
-        $$ = new LoopAST($2, *$4);
-        delete $4;
+    | LOOP NUMBER LBRACE statements RBRACE {
+        $$ = createASTNode("LOOP", $2, $4, NULL);
     }
     ;
 
 expression:
-      expression PLUS expression {
-          $$ = new BinaryExprAST('+', $1, $3);
-      }
-    | expression MINUS expression {
-          $$ = new BinaryExprAST('-', $1, $3);
-      }
-    | expression MULTIPLY expression {
-          $$ = new BinaryExprAST('*', $1, $3);
-      }
-    | expression DIVIDE expression {
-          $$ = new BinaryExprAST('/', $1, $3);
-      }
+      expression PLUS expression { $$ = createASTNode("ADD", "+", $1, $3); }
+    | expression MINUS expression { $$ = createASTNode("SUB", "-", $1, $3); }
+    | expression MULTIPLY expression { $$ = createASTNode("MUL", "*", $1, $3); }
+    | expression DIVIDE expression { $$ = createASTNode("DIV", "/", $1, $3); }
     | primary { $$ = $1; }
     ;
 
 primary:
-      NUMBER { $$ = new NumberExprAST($1); }
-    | IDENTIFIER { $$ = new VariableExprAST(std::string($1)); free($1); }
+      NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
+    | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
     ;
 
 %%
 
-int main() {
-    if(yyparse() == 0) {
-        if (TheAST->codegen() == nullptr) {
-            fprintf(stderr, "Error generating IR\n");
-            return 1;
-        }
-        TheModule->print(llvm::outs(), nullptr);
-        return 0;
-    }
-    return 1;
+void yyerror(const char *s) {
+    fprintf(stderr, "Error: %s\n", s);
 }
