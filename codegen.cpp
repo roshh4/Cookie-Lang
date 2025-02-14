@@ -177,13 +177,9 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
 int main() {
     // Parse input to build the AST.
     if (yyparse() != 0) {
-        std::cerr << "Parsing failed." << std::endl;
+        // Parsing failed; exit silently (or handle errors as desired)
         return 1;
     }
-    
-    // Print the AST for debugging.
-    std::cout << "AST:" << std::endl;
-    printAST(root, 0);
     
     // Create the main function with return type i32.
     FunctionType *funcType = FunctionType::get(Type::getInt32Ty(Context), false);
@@ -202,11 +198,11 @@ int main() {
     std::string error;
     raw_string_ostream errorStream(error);
     if (verifyModule(*TheModule, &errorStream)) {
-        std::cerr << "Error constructing module: " << errorStream.str() << std::endl;
+        // If verification fails, exit without printing extra messages.
         return 1;
     }
     
-    // Print the generated LLVM IR.
+    // Print the generated LLVM IR to stdout.
     TheModule->print(outs(), nullptr);
     
     delete TheModule;
