@@ -1,13 +1,9 @@
-int a = 5;
-float b = 3.5;
-bool c = true;
-char d = 'X';
+str name = "hi alpha, cringe ik";
+print(name);
 
-print(a);
-print(b);
-print(c);
-print(d);
+float a = 2.5;
+float b = 2.2;
+print(a * b);
 
-loop 3 {
-    print(a);
-}
+int i = 4;
+print(i);
