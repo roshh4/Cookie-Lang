@@ -28,7 +28,7 @@ Module *TheModule = new Module("GoofyLang", Context);
 IRBuilder<> Builder(Context);
 
 // This map holds pointers to allocated storage for variables.
-std::map<std::string, Value*> NamedValues; 
+std::map<std::string, Value*> NamedValues;
 
 // Declare the AST root built by the parser.
 extern ASTNode* root;
@@ -121,7 +121,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     // String literal.
     if (strcmp(node->type, "STRING") == 0) {
-        // node->value is like "\"avinash\"". Remove the quotes.
         std::string strLiteral(node->value);
         if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"') {
             strLiteral = strLiteral.substr(1, strLiteral.size() - 2);
@@ -144,7 +143,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
                 std::cerr << "Variable " << node->value << " is not a proper pointer type!" << std::endl;
                 return ConstantInt::get(Type::getInt32Ty(Context), 0);
             }
-            // Use getContainedType(0) instead of getElementType()
             Type *elemType = ptrType->getContainedType(0);
             return Builder.CreateLoad(elemType, varPtr, node->value);
         }
@@ -230,14 +228,15 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (strcmp(node->type, "ASSIGN_STRING") == 0) {
         std::string varName = node->value;
         Value *exprVal = generateIR(node->left, currentFunction);
+        // Force a bitcast to i8* to ensure the value has the proper type.
+        Value *strVal = Builder.CreateBitCast(exprVal, PointerType::get(Type::getInt8Ty(Context), 0), "strcast");
         Value *varPtr = NamedValues[varName];
         if (!varPtr) {
-            // Use PointerType::get to obtain an i8* type.
             varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt8Ty(Context), 0));
             NamedValues[varName] = varPtr;
         }
-        Builder.CreateStore(exprVal, varPtr);
-        return exprVal;
+        Builder.CreateStore(strVal, varPtr);
+        return strVal;
     }
     // Print statement.
     if (strcmp(node->type, "PRINT") == 0) {
@@ -249,12 +248,14 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
             if (!trueStr) {
                 Constant *tstr = ConstantDataArray::getString(Context, "true", true);
-                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true, GlobalValue::PrivateLinkage, tstr, ".str_true");
+                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true,
+                                             GlobalValue::PrivateLinkage, tstr, ".str_true");
             }
             GlobalVariable *falseStr = TheModule->getNamedGlobal(".str_false");
             if (!falseStr) {
                 Constant *fstr = ConstantDataArray::getString(Context, "false", true);
-                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true, GlobalValue::PrivateLinkage, fstr, ".str_false");
+                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true,
+                                              GlobalValue::PrivateLinkage, fstr, ".str_false");
             }
             Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
             std::vector<Constant*> indices = {zero, zero};
@@ -264,7 +265,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             GlobalVariable *fmtStrVarBool = TheModule->getNamedGlobal(".str_bool");
             if (!fmtStrVarBool) {
                 Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
-                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool");
+                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                                   GlobalValue::PrivateLinkage, formatStr, ".str_bool");
             }
             fmtStrVar = fmtStrVarBool;
             exprVal = boolStr; // print the string pointer for bool
@@ -273,9 +275,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         } else if (exprType->isIntegerTy(8)) {
             fmtStrVar = getFormatStringChar();
         } else if (exprType->isPointerTy()) {
-            // Ensure the pointer type has a contained type before checking
-            PointerType *ptrType = cast<PointerType>(exprType);
-            if (ptrType->getNumContainedTypes() > 0 && ptrType->getContainedType(0)->isIntegerTy(8))
+            // In opaque pointer mode, compare directly to i8* type.
+            if (exprType == PointerType::get(Type::getInt8Ty(Context), 0))
                 fmtStrVar = getFormatStringStr();
             else
                 fmtStrVar = getFormatStringInt();
@@ -331,6 +332,7 @@ int main() {
         return 1;
     }
     
+    // Create the main function with return type i32.
     FunctionType *funcType = FunctionType::get(Type::getInt32Ty(Context), false);
     Function *mainFunc = Function::Create(funcType, Function::ExternalLinkage, "main", TheModule);
     BasicBlock *entryBB = BasicBlock::Create(Context, "entry", mainFunc);
@@ -343,7 +345,7 @@ int main() {
     Builder.CreateRet(retVal);
     
     std::string error;
-    llvm::raw_string_ostream errorStream(error);
+    raw_string_ostream errorStream(error);
     if (verifyModule(*TheModule, &errorStream)) {
         std::cerr << "Error: " << errorStream.str() << "\n";
         return 1;
