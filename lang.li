@@ -3,8 +3,8 @@ int b = 4 - 3;
 int c = 2 * 2;
 int d = 4 / 2;
 loop 4 {
-    print(a+b);
+    print(a);
 }
-print(a);
+print(b);
 print(c);
 print(d);
