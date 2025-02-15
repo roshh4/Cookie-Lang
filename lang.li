@@ -1,9 +1,13 @@
 int a = 5;
-int b = 2;
-int c = 2 * 2;
-int d = 4 / 2;
-loop 1 {
+float b = 3.5;
+bool c = true;
+char d = 'X';
+
+print(a);
+print(b);
+print(c);
+print(d);
+
+loop 3 {
     print(a);
 }
-print(a/b);
-
