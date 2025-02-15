@@ -95,8 +95,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     // Float constant.
     if (strcmp(node->type, "FLOAT") == 0) {
-        // Use atof instead of strtof to convert the literal.
-        return ConstantFP::get(Type::getFloatTy(Context), atof(node->value));
+        // Use strtof for conversion.
+        return ConstantFP::get(Type::getFloatTy(Context), strtof(node->value, nullptr));
     }
     // Boolean constant.
     if (strcmp(node->type, "BOOLEAN") == 0) {
@@ -104,7 +104,11 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     // Char constant.
     if (strcmp(node->type, "CHAR") == 0) {
-        // Expecting a literal like 'X'
+        // Expecting a literal like 'X' (3 characters)
+        if (strlen(node->value) < 3) {
+            std::cerr << "Invalid char literal: " << node->value << "\n";
+            return ConstantInt::get(Type::getInt8Ty(Context), 0);
+        }
         return ConstantInt::get(Type::getInt8Ty(Context), node->value[1]);
     }
     // Variable reference.
@@ -114,19 +118,13 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             std::cerr << "Unknown variable: " << node->value << std::endl;
             return ConstantInt::get(Type::getInt32Ty(Context), 0);
         }
-        // If the variable was created by CreateEntryBlockAlloca, get its allocated type.
         if (AllocaInst *alloca = dyn_cast<AllocaInst>(varPtr)) {
             Type *elemType = alloca->getAllocatedType();
             return Builder.CreateLoad(elemType, varPtr, node->value);
         } else {
-            // Fallback: cast to PointerType.
             PointerType *ptrType = dyn_cast<PointerType>(varPtr->getType());
-            if (!ptrType) {
-                std::cerr << "Variable " << node->value << " is not a pointer type!" << std::endl;
-                return ConstantInt::get(Type::getInt32Ty(Context), 0);
-            }
-            if (ptrType->getNumContainedTypes() < 1) {
-                std::cerr << "Pointer type for variable " << node->value << " has no contained types!" << std::endl;
+            if (!ptrType || ptrType->getNumContainedTypes() < 1) {
+                std::cerr << "Variable " << node->value << " is not a proper pointer type!" << std::endl;
                 return ConstantInt::get(Type::getInt32Ty(Context), 0);
             }
             Type *elemType = ptrType->getContainedType(0);
@@ -213,21 +211,50 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     // Print statement.
     if (strcmp(node->type, "PRINT") == 0) {
         Value *exprVal = generateIR(node->left, currentFunction);
-        Function *printfFunc = getPrintfFunction();
-        GlobalVariable *fmtStrVar = nullptr;
         Type *exprType = exprVal->getType();
-        if (exprType->isFloatTy())
-            fmtStrVar = getFormatStringFloat();
-        else if (exprType->isIntegerTy(8))
-            fmtStrVar = getFormatStringChar();
-        else
-            fmtStrVar = getFormatStringInt();  // for int and bool
-        
-        Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
-        std::vector<Constant*> indices = {zero, zero};
-        Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
-        Builder.CreateCall(printfFunc, {fmtStrPtr, exprVal});
-        return exprVal;
+        // If printing a boolean, print "true"/"false"
+        if (exprType->isIntegerTy(1)) {
+            // Create global constants for "true" and "false"
+            GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
+            if (!trueStr) {
+                Constant *tstr = ConstantDataArray::getString(Context, "true", true);
+                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true, GlobalValue::PrivateLinkage, tstr, ".str_true");
+            }
+            GlobalVariable *falseStr = TheModule->getNamedGlobal(".str_false");
+            if (!falseStr) {
+                Constant *fstr = ConstantDataArray::getString(Context, "false", true);
+                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true, GlobalValue::PrivateLinkage, fstr, ".str_false");
+            }
+            Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+            std::vector<Constant*> indices = {zero, zero};
+            Constant *trueStrPtr = ConstantExpr::getGetElementPtr(trueStr->getValueType(), trueStr, indices);
+            Constant *falseStrPtr = ConstantExpr::getGetElementPtr(falseStr->getValueType(), falseStr, indices);
+            // Use the select instruction to choose the proper string.
+            Value *boolStr = Builder.CreateSelect(exprVal, trueStrPtr, falseStrPtr, "boolstr");
+            // Now call printf with format "%s\n"
+            GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_bool");
+            if (!fmtStrVar) {
+                Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
+                fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool");
+            }
+            Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
+            Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, boolStr});
+            return exprVal;
+        } else {
+            // For float, int, and char.
+            GlobalVariable *fmtStrVar = nullptr;
+            if (exprType->isFloatTy())
+                fmtStrVar = getFormatStringFloat();
+            else if (exprType->isIntegerTy(8))
+                fmtStrVar = getFormatStringChar();
+            else
+                fmtStrVar = getFormatStringInt();  // for int
+            Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+            std::vector<Constant*> indices = {zero, zero};
+            Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
+            Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
+            return exprVal;
+        }
     }
     // Loop construct.
     if (strcmp(node->type, "LOOP") == 0) {
