@@ -1,9 +1,30 @@
 str name = "hi alpha, cringe ik";
+str floatadd = "This is float addition: ";
+str intloop = "This is int and loop: ";
+str intsum = "This is int variable sum: ";
+str space = " ";
 print(name);
 
+print(space);
+
+print(floatadd);
 float a = 2.5;
 float b = 2.2;
 print(a * b);
 
+print(space);
+
+print(intloop);
 int i = 4;
-print(i);
+loop 4 {
+    print(i);
+}
+
+print(space);
+
+print(intsum);
+int x = 40;
+int y = 60;
+int z = x + y;
+print(z);
+
