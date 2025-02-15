@@ -85,6 +85,16 @@ GlobalVariable* getFormatStringChar() {
     return fmtStrVar;
 }
 
+GlobalVariable* getFormatStringStr() {
+    GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_string");
+    if (!fmtStrVar) {
+        Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
+        fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                       GlobalValue::PrivateLinkage, formatStr, ".str_string");
+    }
+    return fmtStrVar;
+}
+
 // Recursively generate LLVM IR from the AST.
 Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (!node) return nullptr;
@@ -95,7 +105,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     // Float constant.
     if (strcmp(node->type, "FLOAT") == 0) {
-        // Use strtof for conversion.
         return ConstantFP::get(Type::getFloatTy(Context), strtof(node->value, nullptr));
     }
     // Boolean constant.
@@ -104,12 +113,20 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     // Char constant.
     if (strcmp(node->type, "CHAR") == 0) {
-        // Expecting a literal like 'X' (3 characters)
         if (strlen(node->value) < 3) {
             std::cerr << "Invalid char literal: " << node->value << "\n";
             return ConstantInt::get(Type::getInt8Ty(Context), 0);
         }
         return ConstantInt::get(Type::getInt8Ty(Context), node->value[1]);
+    }
+    // String literal.
+    if (strcmp(node->type, "STRING") == 0) {
+        // node->value is like "\"avinash\"". Remove the quotes.
+        std::string strLiteral(node->value);
+        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"') {
+            strLiteral = strLiteral.substr(1, strLiteral.size() - 2);
+        }
+        return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
     }
     // Variable reference.
     if (strcmp(node->type, "IDENTIFIER") == 0) {
@@ -127,6 +144,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
                 std::cerr << "Variable " << node->value << " is not a proper pointer type!" << std::endl;
                 return ConstantInt::get(Type::getInt32Ty(Context), 0);
             }
+            // Use getContainedType(0) instead of getElementType()
             Type *elemType = ptrType->getContainedType(0);
             return Builder.CreateLoad(elemType, varPtr, node->value);
         }
@@ -208,13 +226,26 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Builder.CreateStore(exprVal, varPtr);
         return exprVal;
     }
+    // Assignment for string variables.
+    if (strcmp(node->type, "ASSIGN_STRING") == 0) {
+        std::string varName = node->value;
+        Value *exprVal = generateIR(node->left, currentFunction);
+        Value *varPtr = NamedValues[varName];
+        if (!varPtr) {
+            // Use PointerType::get to obtain an i8* type.
+            varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt8Ty(Context), 0));
+            NamedValues[varName] = varPtr;
+        }
+        Builder.CreateStore(exprVal, varPtr);
+        return exprVal;
+    }
     // Print statement.
     if (strcmp(node->type, "PRINT") == 0) {
         Value *exprVal = generateIR(node->left, currentFunction);
         Type *exprType = exprVal->getType();
-        // If printing a boolean, print "true"/"false"
+        GlobalVariable *fmtStrVar = nullptr;
         if (exprType->isIntegerTy(1)) {
-            // Create global constants for "true" and "false"
+            // Boolean printing: print "true" or "false"
             GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
             if (!trueStr) {
                 Constant *tstr = ConstantDataArray::getString(Context, "true", true);
@@ -229,32 +260,33 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             std::vector<Constant*> indices = {zero, zero};
             Constant *trueStrPtr = ConstantExpr::getGetElementPtr(trueStr->getValueType(), trueStr, indices);
             Constant *falseStrPtr = ConstantExpr::getGetElementPtr(falseStr->getValueType(), falseStr, indices);
-            // Use the select instruction to choose the proper string.
             Value *boolStr = Builder.CreateSelect(exprVal, trueStrPtr, falseStrPtr, "boolstr");
-            // Now call printf with format "%s\n"
-            GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_bool");
-            if (!fmtStrVar) {
+            GlobalVariable *fmtStrVarBool = TheModule->getNamedGlobal(".str_bool");
+            if (!fmtStrVarBool) {
                 Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
-                fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool");
+                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool");
             }
-            Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
-            Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, boolStr});
-            return exprVal;
-        } else {
-            // For float, int, and char.
-            GlobalVariable *fmtStrVar = nullptr;
-            if (exprType->isFloatTy())
-                fmtStrVar = getFormatStringFloat();
-            else if (exprType->isIntegerTy(8))
-                fmtStrVar = getFormatStringChar();
+            fmtStrVar = fmtStrVarBool;
+            exprVal = boolStr; // print the string pointer for bool
+        } else if (exprType->isFloatTy()) {
+            fmtStrVar = getFormatStringFloat();
+        } else if (exprType->isIntegerTy(8)) {
+            fmtStrVar = getFormatStringChar();
+        } else if (exprType->isPointerTy()) {
+            // Ensure the pointer type has a contained type before checking
+            PointerType *ptrType = cast<PointerType>(exprType);
+            if (ptrType->getNumContainedTypes() > 0 && ptrType->getContainedType(0)->isIntegerTy(8))
+                fmtStrVar = getFormatStringStr();
             else
-                fmtStrVar = getFormatStringInt();  // for int
-            Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
-            std::vector<Constant*> indices = {zero, zero};
-            Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
-            Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
-            return exprVal;
+                fmtStrVar = getFormatStringInt();
+        } else {
+            fmtStrVar = getFormatStringInt();
         }
+        Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+        std::vector<Constant*> indices = {zero, zero};
+        Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
+        Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
+        return exprVal;
     }
     // Loop construct.
     if (strcmp(node->type, "LOOP") == 0) {
@@ -311,7 +343,7 @@ int main() {
     Builder.CreateRet(retVal);
     
     std::string error;
-    raw_string_ostream errorStream(error);
+    llvm::raw_string_ostream errorStream(error);
     if (verifyModule(*TheModule, &errorStream)) {
         std::cerr << "Error: " << errorStream.str() << "\n";
         return 1;

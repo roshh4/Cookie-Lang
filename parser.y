@@ -17,9 +17,9 @@ ASTNode *root;  // Global AST root
     ASTNode* node;
 }
 
-%token INT FLOAT BOOL CHAR PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
+%token INT FLOAT BOOL CHAR STRING PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token PLUS MINUS MULTIPLY DIVIDE
-%token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN
+%token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
 %type <node> expression primary statement statements
 
@@ -50,6 +50,9 @@ statement:
     | CHAR IDENTIFIER ASSIGN CHAR_LITERAL SEMICOLON {
           $$ = createASTNode("ASSIGN_CHAR", $2, createASTNode("CHAR", $4, NULL, NULL), NULL);
       }
+    | STRING IDENTIFIER ASSIGN expression SEMICOLON {
+          $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL);
+      }
     | PRINT LPAREN expression RPAREN SEMICOLON {
           $$ = createASTNode("PRINT", NULL, $3, NULL);
       }
@@ -71,6 +74,7 @@ primary:
     | FLOAT_NUMBER { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
     | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
+    | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
     ;
