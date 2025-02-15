@@ -1,10 +1,13 @@
-int a = 3 + 1;
-int b = 4 - 3;
-int c = 2 * 2;
-int d = 4 / 2;
-loop 4 {
-    print(a);
-}
+int a = 5;
+float b = 3.5;
+bool c = true;
+char d = 'X';
+
+print(a);
 print(b);
 print(c);
 print(d);
+
+loop 3 {
+    print(a);
+}
