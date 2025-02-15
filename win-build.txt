@@ -8,6 +8,11 @@ g++ ast.o parser.tab.o lex.yy.o codegen.o -o compiler $(llvm-config --ldflags --
 Get-Content .\lang.li | .\compiler > output.ll
 lli output.ll
 
+<<<<<<< HEAD
 to remove:
 Remove-Item -Force "ast.o", "parser.tab.c", "parser.tab.h", "parser.tab.o", "lex.yy.c", "lex.yy.o", "codegen.o", "compiler.exe", "output.ll"
 
+=======
+to remove the built files:
+Remove-Item -Force "ast.o", "parser.tab.c", "parser.tab.h", "parser.tab.o", "lex.yy.c", "lex.yy.o", "codegen.o", "compiler.exe", "output.ll"
+>>>>>>> main
