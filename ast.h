@@ -12,7 +12,6 @@ typedef struct ASTNode {
     struct ASTNode* right;
 } ASTNode;
 
-// Function prototypes
 ASTNode* createASTNode(char* type, char* value, ASTNode* left, ASTNode* right);
 void printAST(ASTNode* node, int level);
 void freeAST(ASTNode* node);
