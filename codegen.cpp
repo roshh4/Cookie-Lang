@@ -116,17 +116,17 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (!node) return nullptr;
     
     // Integer constant.
-    if (strcmp(node->type, "NUMBER") == 0) {
+    if (strcmp(node->type, "NUMBER") == 0)
         return ConstantInt::get(Type::getInt32Ty(Context), atoi(node->value));
-    }
+    
     // Float constant.
-    if (strcmp(node->type, "FLOAT") == 0) {
+    if (strcmp(node->type, "FLOAT") == 0)
         return ConstantFP::get(Type::getFloatTy(Context), strtof(node->value, nullptr));
-    }
+    
     // Boolean constant.
-    if (strcmp(node->type, "BOOLEAN") == 0) {
+    if (strcmp(node->type, "BOOLEAN") == 0)
         return ConstantInt::get(Type::getInt1Ty(Context), atoi(node->value));
-    }
+    
     // Char constant.
     if (strcmp(node->type, "CHAR") == 0) {
         if (strlen(node->value) < 3) {
@@ -135,14 +135,15 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         }
         return ConstantInt::get(Type::getInt8Ty(Context), node->value[1]);
     }
+    
     // String literal.
     if (strcmp(node->type, "STRING") == 0) {
         std::string strLiteral(node->value);
-        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"') {
+        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"')
             strLiteral = strLiteral.substr(1, strLiteral.size() - 2);
-        }
         return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
     }
+    
     // Variable reference.
     if (strcmp(node->type, "IDENTIFIER") == 0) {
         Value* varPtr = NamedValues[node->value];
@@ -163,6 +164,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return Builder.CreateLoad(elemType, varPtr, node->value);
         }
     }
+    
     // Unary minus (NEG) for negative numbers.
     if (strcmp(node->type, "NEG") == 0) {
         Value *val = generateIR(node->left, currentFunction);
@@ -171,6 +173,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateNeg(val, "negtmp");
     }
+    
     // Arithmetic operations.
     if (strcmp(node->type, "ADD") == 0) {
         Value *L = generateIR(node->left, currentFunction);
@@ -181,10 +184,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             Function *concatFunc = getConcatFunction();
             return Builder.CreateCall(concatFunc, {L, R}, "concat");
         }
-        // If both operands are floats, do a floating-point add.
         if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
             return Builder.CreateFAdd(L, R, "faddtmp");
-        // Otherwise, assume integer addition.
         return Builder.CreateAdd(L, R, "addtmp");
     }
     if (strcmp(node->type, "SUB") == 0) {
@@ -208,6 +209,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return Builder.CreateFDiv(L, R, "fdivtmp");
         return Builder.CreateSDiv(L, R, "divtmp");
     }
+    
     // Assignment for integer variables.
     if (strcmp(node->type, "ASSIGN_INT") == 0) {
         std::string varName = node->value;
@@ -313,15 +315,13 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
                                                    GlobalValue::PrivateLinkage, formatStr, ".str_bool");
             }
             fmtStrVar = fmtStrVarBool;
-            exprVal = boolStr; // print the string pointer for bool
+            exprVal = boolStr;
         } else if (exprType->isFloatTy()) {
             fmtStrVar = getFormatStringFloat();
-            // Promote float to double because printf expects a double for %g.
             exprVal = Builder.CreateFPExt(exprVal, Type::getDoubleTy(Context), "toDouble");
         } else if (exprType->isIntegerTy(8)) {
             fmtStrVar = getFormatStringChar();
         } else if (exprType->isPointerTy()) {
-            // In opaque pointer mode, compare directly to i8* type.
             if (exprType == PointerType::get(Type::getInt8Ty(Context), 0))
                 fmtStrVar = getFormatStringStr();
             else
@@ -335,18 +335,17 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
         return exprVal;
     }
-    // Loop construct – now accepts any expression as the loop count.
+    // Loop construct – using an expression as loop count.
     if (strcmp(node->type, "LOOP") == 0) {
-        // Evaluate the loop count expression (for example, an identifier such as n)
+        // Evaluate the loop count expression.
         Value *loopCountVal = generateIR(node->left, currentFunction);
         if (!loopCountVal) {
             std::cerr << "Error: Invalid loop count expression\n";
             return nullptr;
         }
         // Ensure the loop count is an i32.
-        if (loopCountVal->getType() != Type::getInt32Ty(Context)) {
+        if (loopCountVal->getType() != Type::getInt32Ty(Context))
             loopCountVal = Builder.CreateIntCast(loopCountVal, Type::getInt32Ty(Context), true, "loopcount");
-        }
         
         // Create a new local variable "i" for the loop counter.
         AllocaInst *loopVar = CreateEntryBlockAlloca(currentFunction, "i", Type::getInt32Ty(Context));
@@ -364,7 +363,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Builder.CreateCondBr(cond, loopBodyBB, afterLoopBB);
         
         Builder.SetInsertPoint(loopBodyBB);
-        // Generate IR for the loop body (stored in node->right)
+        // Generate IR for the loop body (node->right contains the statements).
         generateIR(node->right, currentFunction);
         Value *nextVal = Builder.CreateAdd(currVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "inc");
         Builder.CreateStore(nextVal, loopVar);
@@ -381,13 +380,71 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return generateIR(node->right, currentFunction);
         return nullptr;
     }
+    
+    // --- Declaration cases ---
+    if (strcmp(node->type, "DECL_INT") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt32Ty(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_FLOAT") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getFloatTy(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantFP::get(Type::getFloatTy(Context), 0.0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_BOOL") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt1Ty(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantInt::get(Type::getInt1Ty(Context), 0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_CHAR") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt8Ty(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantInt::get(Type::getInt8Ty(Context), 0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_STRING") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName,
+                           PointerType::get(Type::getInt8Ty(Context), 0));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(Context), 0)), varPtr);
+        return varPtr;
+    }
+    
     return nullptr;
 }
 
 int main() {
-    if (yyparse() != 0) {
+    if (yyparse() != 0)
         return 1;
-    }
     
     // Create the main function with return type i32.
     FunctionType *funcType = FunctionType::get(Type::getInt32Ty(Context), false);
