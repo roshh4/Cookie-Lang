@@ -68,7 +68,8 @@ GlobalVariable* getFormatStringInt() {
 GlobalVariable* getFormatStringFloat() {
     GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_float");
     if (!fmtStrVar) {
-        Constant *formatStr = ConstantDataArray::getString(Context, "%f\n", true);
+        // Changed format specifier from "%f\n" to "%g\n" to avoid trailing zeros.
+        Constant *formatStr = ConstantDataArray::getString(Context, "%g\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
             GlobalValue::PrivateLinkage, formatStr, ".str_float");
     }
@@ -315,7 +316,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             exprVal = boolStr; // print the string pointer for bool
         } else if (exprType->isFloatTy()) {
             fmtStrVar = getFormatStringFloat();
-            // Promote float to double because printf expects a double for %f.
+            // Promote float to double because printf expects a double for %g.
             exprVal = Builder.CreateFPExt(exprVal, Type::getDoubleTy(Context), "toDouble");
         } else if (exprType->isIntegerTy(8)) {
             fmtStrVar = getFormatStringChar();
