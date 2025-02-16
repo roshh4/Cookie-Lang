@@ -1,9 +1,3 @@
 datatype
 1.Blool 1 & 0 not working for true and false respictively
 2.float is printing 7 decimals, it shoudent have non zeroes values
-
-string
-
-
-variable
-1.rereference the variable not working 

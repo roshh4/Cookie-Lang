@@ -1,3 +1,4 @@
+gcc -shared -fPIC runtime.c -o libruntime.so
 bison -d parser.y
 flex lexer.l
 gcc -c ast.c -o ast.o
@@ -7,9 +8,7 @@ g++ -c codegen.cpp -o codegen.o $(llvm-config --cxxflags)
 g++ ast.o parser.tab.o lex.yy.o codegen.o -o compiler $(llvm-config --ldflags --libs core)
 Get-Content .\lang.li | .\compiler > output.ll
 lli output.ll
-
-to remove:
-Remove-Item -Force "ast.o", "parser.tab.c", "parser.tab.h", "parser.tab.o", "lex.yy.c", "lex.yy.o", "codegen.o", "compiler.exe", "output.ll"
+lli -load ./libruntime.so output.ll
 
 to remove the built files:
-Remove-Item -Force "ast.o", "parser.tab.c", "parser.tab.h", "parser.tab.o", "lex.yy.c", "lex.yy.o", "codegen.o", "compiler.exe", "output.ll"
+Remove-Item -Force "ast.o", "parser.tab.c", "parser.tab.h", "parser.tab.o", "lex.yy.c", "lex.yy.o", "codegen.o", "compiler.exe", "output.ll", "libruntime.so"

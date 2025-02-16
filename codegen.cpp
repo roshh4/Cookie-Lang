@@ -60,7 +60,7 @@ GlobalVariable* getFormatStringInt() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%d\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_int");
+            GlobalValue::PrivateLinkage, formatStr, ".str_int");
     }
     return fmtStrVar;
 }
@@ -70,7 +70,7 @@ GlobalVariable* getFormatStringFloat() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%f\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_float");
+            GlobalValue::PrivateLinkage, formatStr, ".str_float");
     }
     return fmtStrVar;
 }
@@ -80,7 +80,7 @@ GlobalVariable* getFormatStringChar() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%c\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_char");
+            GlobalValue::PrivateLinkage, formatStr, ".str_char");
     }
     return fmtStrVar;
 }
@@ -90,7 +90,7 @@ GlobalVariable* getFormatStringStr() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_string");
+            GlobalValue::PrivateLinkage, formatStr, ".str_string");
     }
     return fmtStrVar;
 }
@@ -116,6 +116,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     // Integer constant.
     if (strcmp(node->type, "NUMBER") == 0) {
+        // atoi supports negative numbers.
         return ConstantInt::get(Type::getInt32Ty(Context), atoi(node->value));
     }
     // Float constant.
@@ -161,6 +162,14 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             Type *elemType = ptrType->getContainedType(0);
             return Builder.CreateLoad(elemType, varPtr, node->value);
         }
+    }
+    // Unary minus (NEG) for negative numbers.
+    if (strcmp(node->type, "NEG") == 0) {
+        Value *val = generateIR(node->left, currentFunction);
+        if (val->getType()->isFloatTy())
+            return Builder.CreateFNeg(val, "fnegtmp");
+        else
+            return Builder.CreateNeg(val, "negtmp");
     }
     // Arithmetic operations.
     if (strcmp(node->type, "ADD") == 0) {
@@ -260,6 +269,18 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         }
         Builder.CreateStore(strVal, varPtr);
         return strVal;
+    }
+    // Reassignment for already declared variables.
+    if (strcmp(node->type, "REASSIGN") == 0) {
+        std::string varName = node->value;
+        Value *varPtr = NamedValues[varName];
+        if (!varPtr) {
+            std::cerr << "Undeclared variable: " << varName << std::endl;
+            return nullptr;
+        }
+        Value *exprVal = generateIR(node->left, currentFunction);
+        Builder.CreateStore(exprVal, varPtr);
+        return exprVal;
     }
     // Print statement.
     if (strcmp(node->type, "PRINT") == 0) {
