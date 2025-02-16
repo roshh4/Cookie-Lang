@@ -60,7 +60,7 @@ GlobalVariable* getFormatStringInt() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%d\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_int");
+        GlobalValue::PrivateLinkage, formatStr, ".str_int");
     }
     return fmtStrVar;
 }
@@ -70,7 +70,7 @@ GlobalVariable* getFormatStringFloat() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%f\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_float");
+        GlobalValue::PrivateLinkage, formatStr, ".str_float");
     }
     return fmtStrVar;
 }
@@ -80,7 +80,7 @@ GlobalVariable* getFormatStringChar() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%c\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_char");
+        GlobalValue::PrivateLinkage, formatStr, ".str_char");
     }
     return fmtStrVar;
 }
@@ -90,7 +90,7 @@ GlobalVariable* getFormatStringStr() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                       GlobalValue::PrivateLinkage, formatStr, ".str_string");
+        GlobalValue::PrivateLinkage, formatStr, ".str_string");
     }
     return fmtStrVar;
 }
@@ -272,6 +272,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             exprVal = boolStr; // print the string pointer for bool
         } else if (exprType->isFloatTy()) {
             fmtStrVar = getFormatStringFloat();
+            // Promote float to double because printf expects a double for %f.
+            exprVal = Builder.CreateFPExt(exprVal, Type::getDoubleTy(Context), "toDouble");
         } else if (exprType->isIntegerTy(8)) {
             fmtStrVar = getFormatStringChar();
         } else if (exprType->isPointerTy()) {
@@ -338,11 +340,11 @@ int main() {
     BasicBlock *entryBB = BasicBlock::Create(Context, "entry", mainFunc);
     Builder.SetInsertPoint(entryBB);
     
-    Value *retVal = generateIR(root, mainFunc);
-    if (!retVal) {
-        retVal = ConstantInt::get(Type::getInt32Ty(Context), 0);
-    }
-    Builder.CreateRet(retVal);
+    // Generate code for the AST, but ignore its returned value.
+    generateIR(root, mainFunc);
+    
+    // Always return 0 from main.
+    Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
     
     std::string error;
     raw_string_ostream errorStream(error);
