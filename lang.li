@@ -1,0 +1,4 @@
+int n = 4;
+loop n{
+    print(2);
+}
