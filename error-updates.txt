@@ -1,0 +1,22 @@
+datatype
+1.float is printing 7 decimals, it shoudent have non zeroes values
+---------------------------
+variables
+1.var
+2.precidence
+---------------------------
+loop
+1. loop n
+---------------------------
+temp
+1. int temp;
+
+---------------------------------------------
+Next update 
+1. for
+2. while
+3. if else....
+
+---------------------------------------------
+
+1.functions 

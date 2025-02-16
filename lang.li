@@ -1,4 +1,3 @@
-int n = 4;
-loop n{
-    print(2);
-}
+int temp;
+temp = 5;
+print(temp);
