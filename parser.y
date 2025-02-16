@@ -53,6 +53,10 @@ statement:
     | STRING IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL);
       }
+    /* NEW REASSIGNMENT RULE */
+    | IDENTIFIER ASSIGN expression SEMICOLON {
+          $$ = createASTNode("REASSIGN", $1, $3, NULL);
+      }
     | PRINT LPAREN expression RPAREN SEMICOLON {
           $$ = createASTNode("PRINT", NULL, $3, NULL);
       }
