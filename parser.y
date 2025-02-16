@@ -38,6 +38,7 @@ statements:
     ;
 
 statement:
+      /* Assignment with initialization */
       INT IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_INT", $2, $4, NULL);
       }
@@ -53,7 +54,23 @@ statement:
     | STRING IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL);
       }
-    /* Reassignment rule */
+      /* Declaration without initialization */
+    | INT IDENTIFIER SEMICOLON {
+          $$ = createASTNode("DECL_INT", $2, NULL, NULL);
+      }
+    | FLOAT IDENTIFIER SEMICOLON {
+          $$ = createASTNode("DECL_FLOAT", $2, NULL, NULL);
+      }
+    | BOOL IDENTIFIER SEMICOLON {
+          $$ = createASTNode("DECL_BOOL", $2, NULL, NULL);
+      }
+    | CHAR IDENTIFIER SEMICOLON {
+          $$ = createASTNode("DECL_CHAR", $2, NULL, NULL);
+      }
+    | STRING IDENTIFIER SEMICOLON {
+          $$ = createASTNode("DECL_STRING", $2, NULL, NULL);
+      }
+      /* Reassignment */
     | IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("REASSIGN", $1, $3, NULL);
       }

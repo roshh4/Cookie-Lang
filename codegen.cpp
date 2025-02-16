@@ -116,7 +116,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     // Integer constant.
     if (strcmp(node->type, "NUMBER") == 0) {
-        // atoi supports negative numbers.
         return ConstantInt::get(Type::getInt32Ty(Context), atoi(node->value));
     }
     // Float constant.
@@ -181,10 +180,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             Function *concatFunc = getConcatFunction();
             return Builder.CreateCall(concatFunc, {L, R}, "concat");
         }
-        // If both operands are floats, do a floating-point add.
         if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
             return Builder.CreateFAdd(L, R, "faddtmp");
-        // Otherwise, assume integer addition.
         return Builder.CreateAdd(L, R, "addtmp");
     }
     if (strcmp(node->type, "SUB") == 0) {
@@ -260,7 +257,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (strcmp(node->type, "ASSIGN_STRING") == 0) {
         std::string varName = node->value;
         Value *exprVal = generateIR(node->left, currentFunction);
-        // Force a bitcast to i8* to ensure the value has the proper type.
         Value *strVal = Builder.CreateBitCast(exprVal, PointerType::get(Type::getInt8Ty(Context), 0), "strcast");
         Value *varPtr = NamedValues[varName];
         if (!varPtr) {
@@ -270,7 +266,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Builder.CreateStore(strVal, varPtr);
         return strVal;
     }
-    // Reassignment for already declared variables.
+    // Reassignment.
     if (strcmp(node->type, "REASSIGN") == 0) {
         std::string varName = node->value;
         Value *varPtr = NamedValues[varName];
@@ -288,7 +284,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Type *exprType = exprVal->getType();
         GlobalVariable *fmtStrVar = nullptr;
         if (exprType->isIntegerTy(1)) {
-            // Boolean printing: print "true" or "false"
             GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
             if (!trueStr) {
                 Constant *tstr = ConstantDataArray::getString(Context, "true", true);
@@ -313,15 +308,13 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
                                                    GlobalValue::PrivateLinkage, formatStr, ".str_bool");
             }
             fmtStrVar = fmtStrVarBool;
-            exprVal = boolStr; // print the string pointer for bool
+            exprVal = boolStr;
         } else if (exprType->isFloatTy()) {
             fmtStrVar = getFormatStringFloat();
-            // Promote float to double because printf expects a double for %f.
             exprVal = Builder.CreateFPExt(exprVal, Type::getDoubleTy(Context), "toDouble");
         } else if (exprType->isIntegerTy(8)) {
             fmtStrVar = getFormatStringChar();
         } else if (exprType->isPointerTy()) {
-            // In opaque pointer mode, compare directly to i8* type.
             if (exprType == PointerType::get(Type::getInt8Ty(Context), 0))
                 fmtStrVar = getFormatStringStr();
             else
@@ -370,6 +363,65 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return generateIR(node->right, currentFunction);
         return nullptr;
     }
+    
+    // --- New Cases: Declarations without initialization ---
+    if (strcmp(node->type, "DECL_INT") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt32Ty(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_FLOAT") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getFloatTy(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantFP::get(Type::getFloatTy(Context), 0.0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_BOOL") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt1Ty(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantInt::get(Type::getInt1Ty(Context), 0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_CHAR") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt8Ty(Context));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantInt::get(Type::getInt8Ty(Context), 0), varPtr);
+        return varPtr;
+    }
+    if (strcmp(node->type, "DECL_STRING") == 0) {
+        std::string varName = node->value;
+        if (NamedValues.find(varName) != NamedValues.end()) {
+            std::cerr << "Variable " << varName << " already declared!" << std::endl;
+            return nullptr;
+        }
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName,
+                           PointerType::get(Type::getInt8Ty(Context), 0));
+        NamedValues[varName] = varPtr;
+        Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(Context), 0)), varPtr);
+        return varPtr;
+    }
+    
     return nullptr;
 }
 
@@ -384,10 +436,10 @@ int main() {
     BasicBlock *entryBB = BasicBlock::Create(Context, "entry", mainFunc);
     Builder.SetInsertPoint(entryBB);
     
-    // Generate code for the AST. (We ignore the result.)
+    // Generate code for the AST.
     generateIR(root, mainFunc);
     
-    // Always return 0 from main.
+    // Return 0 from main.
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
     
     std::string error;
