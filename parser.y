@@ -53,7 +53,7 @@ statement:
     | STRING IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL);
       }
-    /* NEW REASSIGNMENT RULE */
+    /* Reassignment (variable already declared) */
     | IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("REASSIGN", $1, $3, NULL);
       }
@@ -74,7 +74,8 @@ expression:
     ;
 
 primary:
-      NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
+      MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
+    | NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
     | FLOAT_NUMBER { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
     | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
