@@ -3,7 +3,7 @@ datatype
 2.float is printing 7 decimals, it shoudent have non zeroes values
 
 string
-1.concanate
+
 
 variable
 1.rereference the variable not working 
