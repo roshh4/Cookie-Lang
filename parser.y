@@ -44,8 +44,8 @@ statement:
     | FLOAT IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_FLOAT", $2, $4, NULL);
       }
-    | BOOL IDENTIFIER ASSIGN BOOLEAN SEMICOLON {
-          $$ = createASTNode("ASSIGN_BOOL", $2, createASTNode("BOOLEAN", $4, NULL, NULL), NULL);
+    | BOOL IDENTIFIER ASSIGN expression SEMICOLON {
+          $$ = createASTNode("ASSIGN_BOOL", $2, $4, NULL);
       }
     | CHAR IDENTIFIER ASSIGN CHAR_LITERAL SEMICOLON {
           $$ = createASTNode("ASSIGN_CHAR", $2, createASTNode("CHAR", $4, NULL, NULL), NULL);
@@ -53,7 +53,7 @@ statement:
     | STRING IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL);
       }
-    /* Reassignment (variable already declared) */
+    /* Reassignment rule */
     | IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("REASSIGN", $1, $3, NULL);
       }

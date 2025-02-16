@@ -14,7 +14,7 @@ ASTNode* createASTNode(char* type, char* value, ASTNode* left, ASTNode* right) {
 
 void printAST(ASTNode* node, int level) {
     if (!node) return;
-    for (int i = 0; i < level; i++) 
+    for (int i = 0; i < level; i++)
         printf("  ");
     printf("%s: %s\n", node->type, node->value ? node->value : "NULL");
     printAST(node->left, level + 1);

@@ -8,7 +8,6 @@
 %option noyywrap
 
 %%
-
 "int"           { return INT; }
 "float"         { return FLOAT; }
 "bool"          { return BOOL; }
