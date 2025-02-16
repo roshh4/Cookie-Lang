@@ -28,3 +28,8 @@ int y = 60;
 int z = x + y;
 print(z);
 
+float c = 4.5;
+print(c);
+
+str hi = "toshhh";
+print(hi);
