@@ -60,7 +60,7 @@ GlobalVariable* getFormatStringInt() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%d\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-        GlobalValue::PrivateLinkage, formatStr, ".str_int");
+                                       GlobalValue::PrivateLinkage, formatStr, ".str_int");
     }
     return fmtStrVar;
 }
@@ -70,7 +70,7 @@ GlobalVariable* getFormatStringFloat() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%f\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-        GlobalValue::PrivateLinkage, formatStr, ".str_float");
+                                       GlobalValue::PrivateLinkage, formatStr, ".str_float");
     }
     return fmtStrVar;
 }
@@ -80,7 +80,7 @@ GlobalVariable* getFormatStringChar() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%c\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-        GlobalValue::PrivateLinkage, formatStr, ".str_char");
+                                       GlobalValue::PrivateLinkage, formatStr, ".str_char");
     }
     return fmtStrVar;
 }
@@ -90,9 +90,24 @@ GlobalVariable* getFormatStringStr() {
     if (!fmtStrVar) {
         Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
         fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
-        GlobalValue::PrivateLinkage, formatStr, ".str_string");
+                                       GlobalValue::PrivateLinkage, formatStr, ".str_string");
     }
     return fmtStrVar;
+}
+
+// Helper: Get or create the declaration for string concatenation.
+// The runtime function should have the following signature:
+//    i8* concat_strings(i8* s1, i8* s2)
+Function* getConcatFunction() {
+    Function *concatFunc = TheModule->getFunction("concat_strings");
+    if (!concatFunc) {
+        std::vector<Type*> concatArgs;
+        concatArgs.push_back(PointerType::get(Type::getInt8Ty(Context), 0));
+        concatArgs.push_back(PointerType::get(Type::getInt8Ty(Context), 0));
+        FunctionType* concatType = FunctionType::get(PointerType::get(Type::getInt8Ty(Context), 0), concatArgs, false);
+        concatFunc = Function::Create(concatType, Function::ExternalLinkage, "concat_strings", TheModule);
+    }
+    return concatFunc;
 }
 
 // Recursively generate LLVM IR from the AST.
@@ -151,8 +166,16 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (strcmp(node->type, "ADD") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
+        // If both operands are strings (i8*), generate a call to concat_strings.
+        if (L->getType() == PointerType::get(Type::getInt8Ty(Context), 0) &&
+            R->getType() == PointerType::get(Type::getInt8Ty(Context), 0)) {
+            Function *concatFunc = getConcatFunction();
+            return Builder.CreateCall(concatFunc, {L, R}, "concat");
+        }
+        // If both operands are floats, do a floating-point add.
         if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
             return Builder.CreateFAdd(L, R, "faddtmp");
+        // Otherwise, assume integer addition.
         return Builder.CreateAdd(L, R, "addtmp");
     }
     if (strcmp(node->type, "SUB") == 0) {
@@ -340,7 +363,7 @@ int main() {
     BasicBlock *entryBB = BasicBlock::Create(Context, "entry", mainFunc);
     Builder.SetInsertPoint(entryBB);
     
-    // Generate code for the AST, but ignore its returned value.
+    // Generate code for the AST. (We ignore the result.)
     generateIR(root, mainFunc);
     
     // Always return 0 from main.

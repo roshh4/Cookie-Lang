@@ -37,3 +37,11 @@ print(u);
 char l = 'z';
 print(l);
 
+str name = "avinash";
+str cat = " Dorito";
+str concat = name + cat;
+print(concat);
+
+str real = "rosh";
+str dorito = " dorito";
+print(real+dorito);
