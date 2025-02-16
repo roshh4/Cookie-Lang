@@ -10,7 +10,7 @@ ASTNode *root;  // Global AST root
 
 %code requires {
   #include "ast.h"
-}
+} 
 
 %union {
     char* str;
