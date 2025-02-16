@@ -33,6 +33,6 @@
 "'"[^\']"'"    { yylval.str = strdup(yytext); return CHAR_LITERAL; }
 \"[^\"]*\"     { yylval.str = strdup(yytext); return STRING_LITERAL; }
 [a-zA-Z]+      { yylval.str = strdup(yytext); return IDENTIFIER; }
-[ \t\n]        ;  // Ignore whitespace
+[ \t\n]        ; 
 
 %%

@@ -238,6 +238,18 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Builder.CreateStore(strVal, varPtr);
         return strVal;
     }
+    // Reassignment for already declared variables.
+    if (strcmp(node->type, "REASSIGN") == 0) {
+        std::string varName = node->value;
+        Value *varPtr = NamedValues[varName];
+        if (!varPtr) {
+            std::cerr << "Undeclared variable: " << varName << std::endl;
+            return nullptr;
+        }
+        Value *exprVal = generateIR(node->left, currentFunction);
+        Builder.CreateStore(exprVal, varPtr);
+        return exprVal;
+    }
     // Print statement.
     if (strcmp(node->type, "PRINT") == 0) {
         Value *exprVal = generateIR(node->left, currentFunction);
@@ -340,7 +352,7 @@ int main() {
     BasicBlock *entryBB = BasicBlock::Create(Context, "entry", mainFunc);
     Builder.SetInsertPoint(entryBB);
     
-    // Generate code for the AST, but ignore its returned value.
+    // Generate code for the AST (ignore any returned value).
     generateIR(root, mainFunc);
     
     // Always return 0 from main.
