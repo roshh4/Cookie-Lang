@@ -20,13 +20,21 @@ ASTNode *root;  // Global AST root
 %token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token IF
 %token LT GT
-%nonassoc LT GT
+%token LE GE
+%token AND OR
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
-%type <node> program statements statement expression primary
-
+/* 
+   Precedence (from lowest to highest):
+   OR < AND < relational (<,>,<=,>=) < PLUS/MINUS < MULTIPLY/DIVIDE
+*/
+%left OR
+%left AND
+%nonassoc LT GT LE GE
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
+
+%type <node> program statements statement expression primary
 
 %%
 
@@ -75,10 +83,18 @@ statement:
     ;
 
 expression:
-      expression LT expression
+      expression OR expression
+          { $$ = createASTNode("OR", "||", $1, $3); }
+    | expression AND expression
+          { $$ = createASTNode("AND", "&&", $1, $3); }
+    | expression LT expression
           { $$ = createASTNode("LT", "<", $1, $3); }
     | expression GT expression
           { $$ = createASTNode("GT", ">", $1, $3); }
+    | expression LE expression
+          { $$ = createASTNode("LE", "<=", $1, $3); }
+    | expression GE expression
+          { $$ = createASTNode("GE", ">=", $1, $3); }
     | expression PLUS expression
           { $$ = createASTNode("ADD", "+", $1, $3); }
     | expression MINUS expression

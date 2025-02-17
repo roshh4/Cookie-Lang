@@ -1,5 +1,10 @@
 int a = 10;
-int b = 2;
-if ( b < a ){
+int b = 10;
+int c = 20;
+int d = 30;
+if ( (a <= 10) && (c < d) ){
+  print("hello");
+}
+if ( (a <= 10) || (c > d) ){
   print("hello");
 }
