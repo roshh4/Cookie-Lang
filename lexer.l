@@ -14,6 +14,8 @@
 "greater"[ \t\n]+"than"                  { return GT; }
 "and"                                   { return AND; }
 "or"                                    { return OR; }
+"while"                                 { return WHILE; }
+"until"                                 { return UNTIL; }
 "&&"                                    { return AND; }
 "||"                                    { return OR; }
 "<="                                    { return LE; }

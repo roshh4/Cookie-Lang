@@ -283,12 +283,14 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
             if (!trueStr) {
                 Constant *tstr = ConstantDataArray::getString(Context, "true", true);
-                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true, GlobalValue::PrivateLinkage, tstr, ".str_true");
+                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true,
+                                             GlobalValue::PrivateLinkage, tstr, ".str_true");
             }
             GlobalVariable *falseStr = TheModule->getNamedGlobal(".str_false");
             if (!falseStr) {
                 Constant *fstr = ConstantDataArray::getString(Context, "false", true);
-                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true, GlobalValue::PrivateLinkage, fstr, ".str_false");
+                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true,
+                                              GlobalValue::PrivateLinkage, fstr, ".str_false");
             }
             Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
             std::vector<Constant*> indices = {zero, zero};
@@ -298,7 +300,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             GlobalVariable *fmtStrVarBool = TheModule->getNamedGlobal(".str_bool");
             if (!fmtStrVarBool) {
                 Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
-                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool");
+                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                                   GlobalValue::PrivateLinkage, formatStr, ".str_bool");
             }
             fmtStrVar = fmtStrVarBool;
             exprVal = boolStr;
@@ -347,6 +350,28 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Builder.CreateStore(nextVal, loopVar);
         Builder.CreateBr(loopCondBB);
         Builder.SetInsertPoint(afterLoopBB);
+        return ConstantInt::get(Type::getInt32Ty(Context), 0);
+    }
+    
+    // New: LOOP_UNTIL (for both "loop until" and "while until" forms)
+    if (strcmp(node->type, "LOOP_UNTIL") == 0) {
+        // node->left: condition; node->right: body.
+        // Loop until condition is true (i.e. continue while not condition)
+        BasicBlock *condBB = BasicBlock::Create(Context, "until.cond", currentFunction);
+        BasicBlock *loopBB = BasicBlock::Create(Context, "until.body", currentFunction);
+        BasicBlock *afterBB = BasicBlock::Create(Context, "until.after", currentFunction);
+        Builder.CreateBr(condBB);
+        Builder.SetInsertPoint(condBB);
+        Value *condVal = generateIR(node->left, currentFunction);
+        if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+            condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "untilcond");
+        // Continue looping while NOT condition.
+        Value *notCond = Builder.CreateNot(condVal, "untilnot");
+        Builder.CreateCondBr(notCond, loopBB, afterBB);
+        Builder.SetInsertPoint(loopBB);
+        generateIR(node->right, currentFunction);
+        Builder.CreateBr(condBB);
+        Builder.SetInsertPoint(afterBB);
         return ConstantInt::get(Type::getInt32Ty(Context), 0);
     }
     
@@ -460,7 +485,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             std::cerr << "Variable " << varName << " already declared!" << std::endl;
             return nullptr;
         }
-        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt8Ty(Context), 0));
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName,
+                                               PointerType::get(Type::getInt8Ty(Context), 0));
         NamedValues[varName] = varPtr;
         Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(Context), 0)), varPtr);
         return varPtr;

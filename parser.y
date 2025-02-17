@@ -17,8 +17,7 @@ ASTNode *root;  // Global AST root
     ASTNode* node;
 }
 
-%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
-%token IF
+%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token LT GT
 %token LE GE
 %token AND OR
@@ -47,8 +46,16 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
+/* New looping constructs: */
+/* "loop until ( expression ) { statements }" */
 statement:
-      INT IDENTIFIER ASSIGN expression SEMICOLON
+      LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
+          { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
+    /* "while until expression { statements }" (without parentheses) */
+    | WHILE UNTIL expression LBRACE statements RBRACE
+          { $$ = createASTNode("LOOP_UNTIL", NULL, $3, $5); }
+    /* (Existing statements follow) */
+    | INT IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_INT", $2, $4, NULL); }
     | FLOAT IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_FLOAT", $2, $4, NULL); }
