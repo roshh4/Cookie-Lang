@@ -16,24 +16,13 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
-
 using namespace llvm;
-
-// Ensure yyparse is declared with C linkage.
 extern "C" int yyparse();
-
-// Global LLVM objects.
 LLVMContext Context;
 Module *TheModule = new Module("GoofyLang", Context);
 IRBuilder<> Builder(Context);
-
-// This map holds pointers to allocated storage for variables.
 std::map<std::string, Value*> NamedValues;
-
-// Declare the AST root built by the parser.
 extern ASTNode* root;
-
-// Forward declaration for AST printing.
 extern void printAST(ASTNode* node, int level);
 
 // Utility: Create an alloca in the entry block.
@@ -64,7 +53,6 @@ GlobalVariable* getFormatStringInt() {
     }
     return fmtStrVar;
 }
-
 GlobalVariable* getFormatStringFloat() {
     GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_float");
     if (!fmtStrVar) {
@@ -74,7 +62,6 @@ GlobalVariable* getFormatStringFloat() {
     }
     return fmtStrVar;
 }
-
 GlobalVariable* getFormatStringChar() {
     GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_char");
     if (!fmtStrVar) {
@@ -84,7 +71,6 @@ GlobalVariable* getFormatStringChar() {
     }
     return fmtStrVar;
 }
-
 GlobalVariable* getFormatStringStr() {
     GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_string");
     if (!fmtStrVar) {
@@ -122,17 +108,15 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         return ConstantInt::get(Type::getInt1Ty(Context), (strcmp(node->value, "true") == 0) ? 1 : 0);
     
     if (strcmp(node->type, "CHAR") == 0) {
-        if (strlen(node->value) < 3) {
-            std::cerr << "Invalid char literal: " << node->value << "\n";
-            return ConstantInt::get(Type::getInt8Ty(Context), 0);
-        }
+        if (strlen(node->value) < 3) { std::cerr << "Invalid char literal: " << node->value << "\n"; return ConstantInt::get(Type::getInt8Ty(Context), 0); }
         return ConstantInt::get(Type::getInt8Ty(Context), node->value[1]);
     }
     
     if (strcmp(node->type, "STRING") == 0) {
         std::string strLiteral(node->value);
-        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"')
+        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"') {
             strLiteral = strLiteral.substr(1, strLiteral.size() - 2);
+        }
         return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
     }
     
@@ -196,6 +180,23 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         return Builder.CreateSDiv(L, R, "divtmp");
     }
     
+    if (strcmp(node->type, "LT") == 0) {
+        Value *L = generateIR(node->left, currentFunction);
+        Value *R = generateIR(node->right, currentFunction);
+        if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
+            return Builder.CreateFCmpOLT(L, R, "cmptmp");
+        else
+            return Builder.CreateICmpSLT(L, R, "cmptmp");
+    }
+    if (strcmp(node->type, "GT") == 0) {
+        Value *L = generateIR(node->left, currentFunction);
+        Value *R = generateIR(node->right, currentFunction);
+        if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
+            return Builder.CreateFCmpOGT(L, R, "cmptmp");
+        else
+            return Builder.CreateICmpSGT(L, R, "cmptmp");
+    }
+    
     // Assignments and declarations (explicit and automatic) are handled similarly.
     if (strcmp(node->type, "ASSIGN_INT") == 0 ||
         strcmp(node->type, "ASSIGN_FLOAT") == 0 ||
@@ -233,10 +234,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (strcmp(node->type, "REASSIGN") == 0) {
         std::string varName = node->value;
         Value *varPtr = NamedValues[varName];
-        if (!varPtr) {
-            std::cerr << "Undeclared variable: " << varName << std::endl;
-            return nullptr;
-        }
+        if (!varPtr) { std::cerr << "Undeclared variable: " << varName << std::endl; return nullptr; }
         Value *exprVal = generateIR(node->left, currentFunction);
         Builder.CreateStore(exprVal, varPtr);
         return exprVal;
@@ -248,28 +246,16 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         GlobalVariable *fmtStrVar = nullptr;
         if (exprType->isIntegerTy(1)) {
             GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
-            if (!trueStr) {
-                Constant *tstr = ConstantDataArray::getString(Context, "true", true);
-                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true,
-                                             GlobalValue::PrivateLinkage, tstr, ".str_true");
-            }
+            if (!trueStr) { Constant *tstr = ConstantDataArray::getString(Context, "true", true); trueStr = new GlobalVariable(*TheModule, tstr->getType(), true, GlobalValue::PrivateLinkage, tstr, ".str_true"); }
             GlobalVariable *falseStr = TheModule->getNamedGlobal(".str_false");
-            if (!falseStr) {
-                Constant *fstr = ConstantDataArray::getString(Context, "false", true);
-                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true,
-                                              GlobalValue::PrivateLinkage, fstr, ".str_false");
-            }
+            if (!falseStr) { Constant *fstr = ConstantDataArray::getString(Context, "false", true); falseStr = new GlobalVariable(*TheModule, fstr->getType(), true, GlobalValue::PrivateLinkage, fstr, ".str_false"); }
             Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
             std::vector<Constant*> indices = {zero, zero};
             Constant *trueStrPtr = ConstantExpr::getGetElementPtr(trueStr->getValueType(), trueStr, indices);
             Constant *falseStrPtr = ConstantExpr::getGetElementPtr(falseStr->getValueType(), falseStr, indices);
             Value *boolStr = Builder.CreateSelect(exprVal, trueStrPtr, falseStrPtr, "boolstr");
             GlobalVariable *fmtStrVarBool = TheModule->getNamedGlobal(".str_bool");
-            if (!fmtStrVarBool) {
-                Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
-                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true,
-                                                   GlobalValue::PrivateLinkage, formatStr, ".str_bool");
-            }
+            if (!fmtStrVarBool) { Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true); fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool"); }
             fmtStrVar = fmtStrVarBool;
             exprVal = boolStr;
         } else if (exprType->isFloatTy()) {
@@ -303,23 +289,19 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         
         AllocaInst *loopVar = CreateEntryBlockAlloca(currentFunction, "i", Type::getInt32Ty(Context));
         Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 0), loopVar);
-        
         BasicBlock *loopCondBB = BasicBlock::Create(Context, "loopcond", currentFunction);
         BasicBlock *loopBodyBB = BasicBlock::Create(Context, "loopbody", currentFunction);
         BasicBlock *afterLoopBB = BasicBlock::Create(Context, "afterloop", currentFunction);
-        
         Builder.CreateBr(loopCondBB);
         Builder.SetInsertPoint(loopCondBB);
         Value *currVal = Builder.CreateLoad(Type::getInt32Ty(Context), loopVar, "i");
         Value *cond = Builder.CreateICmpSLT(currVal, loopCountVal, "loopcond");
         Builder.CreateCondBr(cond, loopBodyBB, afterLoopBB);
-        
         Builder.SetInsertPoint(loopBodyBB);
         generateIR(node->right, currentFunction);
         Value *nextVal = Builder.CreateAdd(currVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "inc");
         Builder.CreateStore(nextVal, loopVar);
         Builder.CreateBr(loopCondBB);
-        
         Builder.SetInsertPoint(afterLoopBB);
         return ConstantInt::get(Type::getInt32Ty(Context), 0);
     }
@@ -441,12 +423,33 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         return varPtr;
     }
     
+    if (strcmp(node->type, "IF") == 0) {
+        // node->left is the condition, node->right is the statement list
+        Value *condVal = generateIR(node->left, currentFunction);
+        if (!condVal) {
+            std::cerr << "Error: Invalid condition in if statement\n";
+            return nullptr;
+        }
+        // If the condition isn’t already a boolean (i1), convert it:
+        if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1) {
+            condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifcond");
+        }
+        BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
+        BasicBlock *mergeBB = BasicBlock::Create(Context, "ifcont", currentFunction);
+        Builder.CreateCondBr(condVal, thenBB, mergeBB);
+        Builder.SetInsertPoint(thenBB);
+        generateIR(node->right, currentFunction);
+        Builder.CreateBr(mergeBB);
+        Builder.SetInsertPoint(mergeBB);
+        return ConstantInt::get(Type::getInt32Ty(Context), 0);
+    }
+    
     return nullptr;
 }
-
 int main() {
-    if (yyparse() != 0)
+    if (yyparse() != 0) {
         return 1;
+    }
     
     FunctionType *funcType = FunctionType::get(Type::getInt32Ty(Context), false);
     Function *mainFunc = Function::Create(funcType, Function::ExternalLinkage, "main", TheModule);
@@ -456,16 +459,10 @@ int main() {
     generateIR(root, mainFunc);
     
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
-    
     std::string error;
     raw_string_ostream errorStream(error);
-    if (verifyModule(*TheModule, &errorStream)) {
-        std::cerr << "Error: " << errorStream.str() << "\n";
-        return 1;
-    }
-    
+    if (verifyModule(*TheModule, &errorStream)) { std::cerr << "Error: " << errorStream.str() << "\n"; return 1; }
     TheModule->print(outs(), nullptr);
-    
     delete TheModule;
     return 0;
 }

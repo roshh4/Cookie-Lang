@@ -8,7 +8,6 @@
 %option noyywrap
 
 %%
-
 "var"          { return VAR; }
 "type"         { return TYPE; }
 "int"          { return INT; }
@@ -18,8 +17,11 @@
 "str"          { return STRING; }
 "print"        { return PRINT; }
 "loop"         { return LOOP; }
-"true"         { yylval.str = strdup("true"); return BOOLEAN; }
-"false"        { yylval.str = strdup("false"); return BOOLEAN; }
+"if"           { return IF; }
+"<"            { return LT; }
+">"            { return GT; }
+"true"         { yylval.str = strdup(yytext); return BOOLEAN; }
+"false"        { yylval.str = strdup(yytext); return BOOLEAN; }
 "="            { return ASSIGN; }
 ";"            { return SEMICOLON; }
 "("            { return LPAREN; }
@@ -37,5 +39,4 @@
 [a-zA-Z_][a-zA-Z0-9_]*  { yylval.str = strdup(yytext); return IDENTIFIER; }
 [ \t\n]+      ;
 .              { /* ignore any other character */ }
-
 %%
