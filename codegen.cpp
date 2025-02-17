@@ -196,6 +196,22 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateICmpSGT(L, R, "cmptmp");
     }
+    if (strcmp(node->type, "LE") == 0) {
+        Value *L = generateIR(node->left, currentFunction);
+        Value *R = generateIR(node->right, currentFunction);
+        if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
+            return Builder.CreateFCmpOLE(L, R, "cmptmp");
+        else
+            return Builder.CreateICmpSLE(L, R, "cmptmp");
+    }
+    if (strcmp(node->type, "GE") == 0) {
+        Value *L = generateIR(node->left, currentFunction);
+        Value *R = generateIR(node->right, currentFunction);
+        if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
+            return Builder.CreateFCmpOGE(L, R, "cmptmp");
+        else
+            return Builder.CreateICmpSGE(L, R, "cmptmp");
+    }
     
     // Assignments and declarations (explicit and automatic) are handled similarly.
     if (strcmp(node->type, "ASSIGN_INT") == 0 ||

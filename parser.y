@@ -20,7 +20,8 @@ ASTNode *root;  // Global AST root
 %token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token IF
 %token LT GT
-%nonassoc LT GT
+%token LE GE
+%nonassoc LT GT LE GE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
 %type <node> program statements statement expression primary
@@ -79,6 +80,10 @@ expression:
           { $$ = createASTNode("LT", "<", $1, $3); }
     | expression GT expression
           { $$ = createASTNode("GT", ">", $1, $3); }
+    | expression LE expression
+          { $$ = createASTNode("LE", "<=", $1, $3); }
+    | expression GE expression
+          { $$ = createASTNode("GE", ">=", $1, $3); }
     | expression PLUS expression
           { $$ = createASTNode("ADD", "+", $1, $3); }
     | expression MINUS expression
