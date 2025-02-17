@@ -212,6 +212,16 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateICmpSGE(L, R, "cmptmp");
     }
+    if (strcmp(node->type, "AND") == 0) {
+        Value *L = generateIR(node->left, currentFunction);
+        Value *R = generateIR(node->right, currentFunction);
+        return Builder.CreateAnd(L, R, "andtmp");
+    }
+    if (strcmp(node->type, "OR") == 0) {
+        Value *L = generateIR(node->left, currentFunction);
+        Value *R = generateIR(node->right, currentFunction);
+        return Builder.CreateOr(L, R, "ortmp");
+    }
     
     // Assignments and declarations (explicit and automatic) are handled similarly.
     if (strcmp(node->type, "ASSIGN_INT") == 0 ||

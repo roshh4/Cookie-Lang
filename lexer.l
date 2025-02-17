@@ -8,6 +8,8 @@
 %option noyywrap
 
 %%
+"&&"           { return AND; }
+"||"           { return OR; }
 "<="           { return LE; }
 ">="           { return GE; }
 "var"          { return VAR; }
