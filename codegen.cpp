@@ -108,15 +108,17 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         return ConstantInt::get(Type::getInt1Ty(Context), (strcmp(node->value, "true") == 0) ? 1 : 0);
     
     if (strcmp(node->type, "CHAR") == 0) {
-        if (strlen(node->value) < 3) { std::cerr << "Invalid char literal: " << node->value << "\n"; return ConstantInt::get(Type::getInt8Ty(Context), 0); }
+        if (strlen(node->value) < 3) {
+            std::cerr << "Invalid char literal: " << node->value << "\n";
+            return ConstantInt::get(Type::getInt8Ty(Context), 0);
+        }
         return ConstantInt::get(Type::getInt8Ty(Context), node->value[1]);
     }
     
     if (strcmp(node->type, "STRING") == 0) {
         std::string strLiteral(node->value);
-        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"') {
+        if (!strLiteral.empty() && strLiteral.front() == '"' && strLiteral.back() == '"')
             strLiteral = strLiteral.substr(1, strLiteral.size() - 2);
-        }
         return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
     }
     
@@ -158,6 +160,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return Builder.CreateFAdd(L, R, "faddtmp");
         return Builder.CreateAdd(L, R, "addtmp");
     }
+    
     if (strcmp(node->type, "SUB") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
@@ -165,6 +168,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return Builder.CreateFSub(L, R, "fsubtmp");
         return Builder.CreateSub(L, R, "subtmp");
     }
+    
     if (strcmp(node->type, "MUL") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
@@ -172,6 +176,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             return Builder.CreateFMul(L, R, "fmultmp");
         return Builder.CreateMul(L, R, "multmp");
     }
+    
     if (strcmp(node->type, "DIV") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
@@ -188,6 +193,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateICmpSLT(L, R, "cmptmp");
     }
+    
     if (strcmp(node->type, "GT") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
@@ -196,6 +202,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateICmpSGT(L, R, "cmptmp");
     }
+    
     if (strcmp(node->type, "LE") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
@@ -204,6 +211,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateICmpSLE(L, R, "cmptmp");
     }
+    
     if (strcmp(node->type, "GE") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
@@ -212,18 +220,19 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         else
             return Builder.CreateICmpSGE(L, R, "cmptmp");
     }
+    
     if (strcmp(node->type, "AND") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
         return Builder.CreateAnd(L, R, "andtmp");
     }
+    
     if (strcmp(node->type, "OR") == 0) {
         Value *L = generateIR(node->left, currentFunction);
         Value *R = generateIR(node->right, currentFunction);
         return Builder.CreateOr(L, R, "ortmp");
     }
     
-    // Assignments and declarations (explicit and automatic) are handled similarly.
     if (strcmp(node->type, "ASSIGN_INT") == 0 ||
         strcmp(node->type, "ASSIGN_FLOAT") == 0 ||
         strcmp(node->type, "ASSIGN_BOOL") == 0 ||
@@ -233,7 +242,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         Value *exprVal = generateIR(node->left, currentFunction);
         Value *varPtr = NamedValues[varName];
         if (!varPtr) {
-            // Create alloca according to explicit type.
             if (strcmp(node->type, "ASSIGN_INT") == 0)
                 varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt32Ty(Context));
             else if (strcmp(node->type, "ASSIGN_FLOAT") == 0)
@@ -243,11 +251,9 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             else if (strcmp(node->type, "ASSIGN_CHAR") == 0)
                 varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt8Ty(Context));
             else if (strcmp(node->type, "ASSIGN_STRING") == 0)
-                varPtr = CreateEntryBlockAlloca(currentFunction, varName,
-                                                PointerType::get(Type::getInt8Ty(Context), 0));
+                varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt8Ty(Context), 0));
             NamedValues[varName] = varPtr;
         }
-        // For string assignment, perform a bitcast.
         if (strcmp(node->type, "ASSIGN_STRING") == 0) {
             Value *strVal = Builder.CreateBitCast(exprVal, PointerType::get(Type::getInt8Ty(Context), 0), "strcast");
             Builder.CreateStore(strVal, varPtr);
@@ -260,7 +266,10 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (strcmp(node->type, "REASSIGN") == 0) {
         std::string varName = node->value;
         Value *varPtr = NamedValues[varName];
-        if (!varPtr) { std::cerr << "Undeclared variable: " << varName << std::endl; return nullptr; }
+        if (!varPtr) {
+            std::cerr << "Undeclared variable: " << varName << std::endl;
+            return nullptr;
+        }
         Value *exprVal = generateIR(node->left, currentFunction);
         Builder.CreateStore(exprVal, varPtr);
         return exprVal;
@@ -272,16 +281,25 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         GlobalVariable *fmtStrVar = nullptr;
         if (exprType->isIntegerTy(1)) {
             GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
-            if (!trueStr) { Constant *tstr = ConstantDataArray::getString(Context, "true", true); trueStr = new GlobalVariable(*TheModule, tstr->getType(), true, GlobalValue::PrivateLinkage, tstr, ".str_true"); }
+            if (!trueStr) {
+                Constant *tstr = ConstantDataArray::getString(Context, "true", true);
+                trueStr = new GlobalVariable(*TheModule, tstr->getType(), true, GlobalValue::PrivateLinkage, tstr, ".str_true");
+            }
             GlobalVariable *falseStr = TheModule->getNamedGlobal(".str_false");
-            if (!falseStr) { Constant *fstr = ConstantDataArray::getString(Context, "false", true); falseStr = new GlobalVariable(*TheModule, fstr->getType(), true, GlobalValue::PrivateLinkage, fstr, ".str_false"); }
+            if (!falseStr) {
+                Constant *fstr = ConstantDataArray::getString(Context, "false", true);
+                falseStr = new GlobalVariable(*TheModule, fstr->getType(), true, GlobalValue::PrivateLinkage, fstr, ".str_false");
+            }
             Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
             std::vector<Constant*> indices = {zero, zero};
             Constant *trueStrPtr = ConstantExpr::getGetElementPtr(trueStr->getValueType(), trueStr, indices);
             Constant *falseStrPtr = ConstantExpr::getGetElementPtr(falseStr->getValueType(), falseStr, indices);
             Value *boolStr = Builder.CreateSelect(exprVal, trueStrPtr, falseStrPtr, "boolstr");
             GlobalVariable *fmtStrVarBool = TheModule->getNamedGlobal(".str_bool");
-            if (!fmtStrVarBool) { Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true); fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool"); }
+            if (!fmtStrVarBool) {
+                Constant *formatStr = ConstantDataArray::getString(Context, "%s\n", true);
+                fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true, GlobalValue::PrivateLinkage, formatStr, ".str_bool");
+            }
             fmtStrVar = fmtStrVarBool;
             exprVal = boolStr;
         } else if (exprType->isFloatTy()) {
@@ -442,24 +460,20 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
             std::cerr << "Variable " << varName << " already declared!" << std::endl;
             return nullptr;
         }
-        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName,
-                                               PointerType::get(Type::getInt8Ty(Context), 0));
+        Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt8Ty(Context), 0));
         NamedValues[varName] = varPtr;
         Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(Context), 0)), varPtr);
         return varPtr;
     }
     
     if (strcmp(node->type, "IF") == 0) {
-        // node->left is the condition, node->right is the statement list
         Value *condVal = generateIR(node->left, currentFunction);
         if (!condVal) {
             std::cerr << "Error: Invalid condition in if statement\n";
             return nullptr;
         }
-        // If the condition isn’t already a boolean (i1), convert it:
-        if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1) {
+        if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
             condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifcond");
-        }
         BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
         BasicBlock *mergeBB = BasicBlock::Create(Context, "ifcont", currentFunction);
         Builder.CreateCondBr(condVal, thenBB, mergeBB);
@@ -472,6 +486,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     return nullptr;
 }
+
 int main() {
     if (yyparse() != 0) {
         return 1;
@@ -487,7 +502,10 @@ int main() {
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
     std::string error;
     raw_string_ostream errorStream(error);
-    if (verifyModule(*TheModule, &errorStream)) { std::cerr << "Error: " << errorStream.str() << "\n"; return 1; }
+    if (verifyModule(*TheModule, &errorStream)) {
+        std::cerr << "Error: " << errorStream.str() << "\n";
+        return 1;
+    }
     TheModule->print(outs(), nullptr);
     delete TheModule;
     return 0;
