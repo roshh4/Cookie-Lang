@@ -6,13 +6,12 @@ extern "C" {
 #endif
 
 typedef struct ASTNode {
-    char* type;
-    char* value;
-    struct ASTNode* left;
-    struct ASTNode* right;
+    char* type;              // Node type (e.g. "NUMBER", "VAR_DECL", "TYPE", etc.)
+    char* value;             // Extra string value (e.g. identifier name or literal)
+    struct ASTNode* left;    // Left child (for binary operators, assignments, etc.)
+    struct ASTNode* right;   // Right child
 } ASTNode;
 
-// Function prototypes
 ASTNode* createASTNode(char* type, char* value, ASTNode* left, ASTNode* right);
 void printAST(ASTNode* node, int level);
 void freeAST(ASTNode* node);
