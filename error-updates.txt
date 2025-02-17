@@ -1,8 +1,11 @@
-datatype
+operators
+1.logical
+2.relational 
+2.precidence
+
 ---------------------------
 variables
 1.var
-2.precidence
 ---------------------------
 
 ---------------------------------------------

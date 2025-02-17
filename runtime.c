@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Concatenates two strings and returns a newly allocated string.
+// Runtime helper: Concatenates two strings.
 char* concat_strings(char* s1, char* s2) {
     size_t len1 = strlen(s1);
     size_t len2 = strlen(s2);
