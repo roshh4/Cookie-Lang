@@ -12,6 +12,8 @@
 "greater"[ \t\n]+"than"[ \t\n]+"equals" { return GE; }
 "less"[ \t\n]+"than"                     { return LT; }
 "greater"[ \t\n]+"than"                  { return GT; }
+"equals"                                { return EQ; }
+"=="                                    { return EQ; }
 "and"                                   { return AND; }
 "or"                                    { return OR; }
 "while"                                 { return WHILE; }
@@ -32,8 +34,6 @@
 "if"                                    { return IF; }
 "<"                                     { return LT; }
 ">"                                     { return GT; }
-"true"                                  { yylval.str = strdup(yytext); return BOOLEAN; }
-"false"                                 { yylval.str = strdup(yytext); return BOOLEAN; }
 "="                                     { return ASSIGN; }
 ";"                                     { return SEMICOLON; }
 "("                                     { return LPAREN; }

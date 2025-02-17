@@ -12,29 +12,31 @@ ASTNode *root;  // Global AST root
   #include "ast.h"
 }
 
+/* Declare the union type used for semantic values */
 %union {
     char* str;
     ASTNode* node;
 }
 
+/* Token declarations */
 %token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token LT GT
 %token LE GE
+%token EQ
 %token AND OR
+%token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
-/* 
-   Precedence (from lowest to highest):
-   OR < AND < relational (<,>,<=,>=) < PLUS/MINUS < MULTIPLY/DIVIDE
+/* Nonterminals are all of type ASTNode* */
+%type <node> program statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary
+
+/* Set the start symbol */
+%start program
+
+/* Grammar: We split the expression into several levels so that equality (== or equals)
+   is handled separately from relational (<, >, <=, >=) and additive/multiplicative operations.
+   Precedence is enforced by the grammar structure.
 */
-%left OR
-%left AND
-%nonassoc LT GT LE GE
-%left PLUS MINUS
-%left MULTIPLY DIVIDE
-
-%type <node> program statements statement expression primary
-
 %%
 
 program:
@@ -46,15 +48,15 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* New looping constructs: */
+/* New looping constructs */
 /* "loop until ( expression ) { statements }" */
 statement:
       LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
-    /* "while until expression { statements }" (without parentheses) */
+    /* "while until expression { statements }" */
     | WHILE UNTIL expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $3, $5); }
-    /* (Existing statements follow) */
+    /* Existing statements */
     | INT IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_INT", $2, $4, NULL); }
     | FLOAT IDENTIFIER ASSIGN expression SEMICOLON
@@ -90,50 +92,57 @@ statement:
     ;
 
 expression:
-      expression OR expression
-          { $$ = createASTNode("OR", "||", $1, $3); }
-    | expression AND expression
-          { $$ = createASTNode("AND", "&&", $1, $3); }
-    | expression LT expression
-          { $$ = createASTNode("LT", "<", $1, $3); }
-    | expression GT expression
-          { $$ = createASTNode("GT", ">", $1, $3); }
-    | expression LE expression
-          { $$ = createASTNode("LE", "<=", $1, $3); }
-    | expression GE expression
-          { $$ = createASTNode("GE", ">=", $1, $3); }
-    | expression PLUS expression
-          { $$ = createASTNode("ADD", "+", $1, $3); }
-    | expression MINUS expression
-          { $$ = createASTNode("SUB", "-", $1, $3); }
-    | expression MULTIPLY expression
-          { $$ = createASTNode("MUL", "*", $1, $3); }
-    | expression DIVIDE expression
-          { $$ = createASTNode("DIV", "/", $1, $3); }
+    logical_or_expression { $$ = $1; }
+    ;
+
+logical_or_expression:
+    logical_or_expression OR logical_and_expression { $$ = createASTNode("OR", "||", $1, $3); }
+    | logical_and_expression { $$ = $1; }
+    ;
+
+logical_and_expression:
+    logical_and_expression AND equality_expression { $$ = createASTNode("AND", "&&", $1, $3); }
+    | equality_expression { $$ = $1; }
+    ;
+
+equality_expression:
+    equality_expression EQ relational_expression { $$ = createASTNode("EQ", "==", $1, $3); }
+    | relational_expression { $$ = $1; }
+    ;
+
+relational_expression:
+    relational_expression LT additive_expression { $$ = createASTNode("LT", "<", $1, $3); }
+    | relational_expression GT additive_expression { $$ = createASTNode("GT", ">", $1, $3); }
+    | relational_expression LE additive_expression { $$ = createASTNode("LE", "<=", $1, $3); }
+    | relational_expression GE additive_expression { $$ = createASTNode("GE", ">=", $1, $3); }
+    | additive_expression { $$ = $1; }
+    ;
+
+additive_expression:
+    additive_expression PLUS multiplicative_expression { $$ = createASTNode("ADD", "+", $1, $3); }
+    | additive_expression MINUS multiplicative_expression { $$ = createASTNode("SUB", "-", $1, $3); }
+    | multiplicative_expression { $$ = $1; }
+    ;
+
+multiplicative_expression:
+    multiplicative_expression MULTIPLY primary { $$ = createASTNode("MUL", "*", $1, $3); }
+    | multiplicative_expression DIVIDE primary { $$ = createASTNode("DIV", "/", $1, $3); }
     | primary { $$ = $1; }
     ;
 
 primary:
-      MINUS primary
-          { $$ = createASTNode("NEG", "-", $2, NULL); }
-    | NUMBER
-          { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
-    | FLOAT_NUMBER
-          { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
-    | BOOLEAN
-          { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }
-    | CHAR_LITERAL
-          { $$ = createASTNode("CHAR", $1, NULL, NULL); }
-    | STRING_LITERAL
-          { $$ = createASTNode("STRING", $1, NULL, NULL); }
-    | IDENTIFIER
-          { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
-    | LPAREN expression RPAREN
-          { $$ = $2; }
+    MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
+    | NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
+    | FLOAT_NUMBER { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
+    | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }
+    | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
+    | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
+    | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
+    | LPAREN expression RPAREN { $$ = $2; }
     ;
 
 %%
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s);
+  fprintf(stderr, "Error: %s\n", s);
 }
