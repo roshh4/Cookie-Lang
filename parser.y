@@ -17,7 +17,7 @@ ASTNode *root;  // Global AST root
     ASTNode* node;
 }
 
-%token INT FLOAT BOOL CHAR STRING PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
+%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
@@ -38,7 +38,7 @@ statements:
     ;
 
 statement:
-      /* Variable assignment with initialization */
+      /* Explicit type declarations with initialization */
       INT IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_INT", $2, $4, NULL);
       }
@@ -54,7 +54,15 @@ statement:
     | STRING IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL);
       }
-      /* Reassignment (variable already declared) */
+      /* Automatic type declaration using var */
+    | VAR IDENTIFIER ASSIGN expression SEMICOLON {
+          $$ = createASTNode("VAR_DECL", $2, $4, NULL);
+      }
+      /* Type–query: type( expression ) */
+    | TYPE LPAREN expression RPAREN {
+          $$ = createASTNode("TYPE", NULL, $3, NULL);
+      }
+      /* Reassignment */
     | IDENTIFIER ASSIGN expression SEMICOLON {
           $$ = createASTNode("REASSIGN", $1, $3, NULL);
       }
@@ -62,11 +70,11 @@ statement:
     | PRINT LPAREN expression RPAREN SEMICOLON {
           $$ = createASTNode("PRINT", NULL, $3, NULL);
       }
-      /* Loop – using an expression to determine the loop count */
+      /* Loop – using an expression as the loop count */
     | LOOP expression LBRACE statements RBRACE {
           $$ = createASTNode("LOOP", NULL, $2, $4);
       }
-      /* Declaration without initialization */
+      /* Declarations without initialization (explicit type) */
     | INT IDENTIFIER SEMICOLON {
           $$ = createASTNode("DECL_INT", $2, NULL, NULL);
       }
