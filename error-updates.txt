@@ -20,11 +20,8 @@ Next update
 
 1.functions 
 
+-----------------------------
 
+scanf
 
----------------------------------------------
-idk what error this is 
-char b = 'X''''';
-if ( b == 'X'''''''' ){
-  print(b);
-}
+loop ---> indise ----> while 

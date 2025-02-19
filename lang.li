@@ -1,4 +1,3 @@
-char b = 'X''''';
-if ( b == 'X'''''''' ){
-  print(b);
-}
+float x = 2.8;
+float y = 2.2;
+print(x+y);
