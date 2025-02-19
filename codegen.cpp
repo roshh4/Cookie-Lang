@@ -12,18 +12,21 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "ast.h"
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
 using namespace llvm;
+
 extern "C" int yyparse();
+extern ASTNode* root;
+extern void printAST(ASTNode* node, int level);
+
 LLVMContext Context;
 Module *TheModule = new Module("GoofyLang", Context);
 IRBuilder<> Builder(Context);
 std::map<std::string, Value*> NamedValues;
-extern ASTNode* root;
-extern void printAST(ASTNode* node, int level);
 
 // Utility: Create an alloca in the entry block.
 static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, const std::string &VarName, Type *type) {
@@ -56,12 +59,15 @@ GlobalVariable* getFormatStringInt() {
 GlobalVariable* getFormatStringFloat() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_float");
   if (!fmtStrVar) {
-    Constant *formatStr = ConstantDataArray::getString(Context, "%g\n", true);
+    // Use "%.1f\n" so that whole numbers show a .0 and non-whole numbers show one decimal digit.
+    Constant *formatStr = ConstantDataArray::getString(Context, "%.1f\n", true);
     fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
                                    GlobalValue::PrivateLinkage, formatStr, ".str_float");
   }
   return fmtStrVar;
 }
+
+
 GlobalVariable* getFormatStringChar() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_char");
   if (!fmtStrVar) {
@@ -98,6 +104,7 @@ Function* getConcatFunction() {
 Value *generateIR(ASTNode *node, Function* currentFunction) {
   if (!node) return nullptr;
   
+  // Numeric literals.
   if (strcmp(node->type, "NUMBER") == 0)
     return ConstantInt::get(Type::getInt32Ty(Context), atoi(node->value));
   
@@ -122,24 +129,24 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
   }
   
+  // Identifier lookup: report error if not found.
   if (strcmp(node->type, "IDENTIFIER") == 0) {
     Value* varPtr = NamedValues[node->value];
     if (!varPtr) {
-      std::cerr << "Unknown variable: " << node->value << std::endl;
-      return ConstantInt::get(Type::getInt32Ty(Context), 0);
+      llvm::report_fatal_error(Twine("Error: Unknown variable '") + node->value + "'");
     }
     if (AllocaInst *alloca = dyn_cast<AllocaInst>(varPtr))
       return Builder.CreateLoad(alloca->getAllocatedType(), varPtr, node->value);
     else {
       PointerType *ptrType = dyn_cast<PointerType>(varPtr->getType());
-      if (!ptrType || ptrType->getNumContainedTypes() < 1) {
-        std::cerr << "Variable " << node->value << " is not a proper pointer type!" << std::endl;
-        return ConstantInt::get(Type::getInt32Ty(Context), 0);
-      }
+      if (!ptrType || ptrType->getNumContainedTypes() < 1)
+        llvm::report_fatal_error(Twine("Error: Variable ") + node->value + " is not a proper pointer type!");
       return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
     }
   }
   
+  
+  // Unary minus.
   if (strcmp(node->type, "NEG") == 0) {
     Value *val = generateIR(node->left, currentFunction);
     if (val->getType()->isFloatTy())
@@ -148,14 +155,24 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateNeg(val, "negtmp");
   }
   
+  // Addition (supporting string concatenation and mixed types).
   if (strcmp(node->type, "ADD") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
+    
+    // String concatenation.
     if (L->getType() == PointerType::get(Type::getInt8Ty(Context), 0) &&
         R->getType() == PointerType::get(Type::getInt8Ty(Context), 0)) {
       Function *concatFunc = getConcatFunction();
       return Builder.CreateCall(concatFunc, {L, R}, "concat");
     }
+    
+    // Mixed int/float conversion.
+    if (L->getType()->isFloatTy() && R->getType()->isIntegerTy())
+      R = Builder.CreateSIToFP(R, Type::getFloatTy(Context), "intToFloat");
+    else if (L->getType()->isIntegerTy() && R->getType()->isFloatTy())
+      L = Builder.CreateSIToFP(L, Type::getFloatTy(Context), "intToFloat");
+    
     if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
       return Builder.CreateFAdd(L, R, "faddtmp");
     return Builder.CreateAdd(L, R, "addtmp");
@@ -185,6 +202,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateSDiv(L, R, "divtmp");
   }
   
+  // Relational operators.
   if (strcmp(node->type, "LT") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -221,7 +239,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateICmpSGE(L, R, "cmptmp");
   }
   
-  // New: Equality check.
   if (strcmp(node->type, "EQ") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -243,6 +260,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateOr(L, R, "ortmp");
   }
   
+  // Handle assignments.
   if (strcmp(node->type, "ASSIGN_INT") == 0 ||
       strcmp(node->type, "ASSIGN_FLOAT") == 0 ||
       strcmp(node->type, "ASSIGN_BOOL") == 0 ||
@@ -264,6 +282,11 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
         varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt8Ty(Context), 0));
       NamedValues[varName] = varPtr;
     }
+    // For float assignments, convert int values.
+    if (strcmp(node->type, "ASSIGN_FLOAT") == 0) {
+      if (exprVal->getType()->isIntegerTy())
+        exprVal = Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "intToFloat");
+    }
     if (strcmp(node->type, "ASSIGN_STRING") == 0) {
       Value *strVal = Builder.CreateBitCast(exprVal, PointerType::get(Type::getInt8Ty(Context), 0), "strcast");
       Builder.CreateStore(strVal, varPtr);
@@ -277,14 +300,23 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     std::string varName = node->value;
     Value *varPtr = NamedValues[varName];
     if (!varPtr) {
-      std::cerr << "Undeclared variable: " << varName << std::endl;
-      return nullptr;
+      llvm::report_fatal_error(Twine("Error: Undeclared variable '") + varName + "'");
     }
     Value *exprVal = generateIR(node->left, currentFunction);
+    // Check if varPtr is an AllocaInst to determine its type.
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(varPtr)) {
+      if (AI->getAllocatedType()->isFloatTy() && exprVal->getType()->isIntegerTy())
+        exprVal = Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "intToFloat");
+    } else if (PointerType *PT = dyn_cast<PointerType>(varPtr->getType())) {
+      if (PT->getContainedType(0)->isFloatTy() && exprVal->getType()->isIntegerTy())
+        exprVal = Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "intToFloat");
+    }
     Builder.CreateStore(exprVal, varPtr);
     return exprVal;
   }
   
+  
+  // Handle printing.
   if (strcmp(node->type, "PRINT") == 0) {
     Value *exprVal = generateIR(node->left, currentFunction);
     Type *exprType = exprVal->getType();
@@ -335,6 +367,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
+  // Loop: "LOOP" with a counter.
   if (strcmp(node->type, "LOOP") == 0) {
     Value *loopCountVal = generateIR(node->left, currentFunction);
     if (!loopCountVal) {
@@ -363,10 +396,8 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // New: LOOP_UNTIL (for both "loop until" and "while until" forms)
+  // Loop until: "LOOP_UNTIL" (for both "loop until" and "while until").
   if (strcmp(node->type, "LOOP_UNTIL") == 0) {
-    // node->left: condition; node->right: body.
-    // Continue looping until condition becomes true (i.e. loop while NOT condition).
     BasicBlock *condBB = BasicBlock::Create(Context, "until.cond", currentFunction);
     BasicBlock *loopBB = BasicBlock::Create(Context, "until.body", currentFunction);
     BasicBlock *afterBB = BasicBlock::Create(Context, "until.after", currentFunction);
@@ -384,6 +415,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
+  // Statement list.
   if (strcmp(node->type, "STATEMENT_LIST") == 0) {
     if (node->left)
       generateIR(node->left, currentFunction);
@@ -392,6 +424,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return nullptr;
   }
   
+  // Variable declaration.
   if (strcmp(node->type, "VAR_DECL") == 0) {
     std::string varName = node->value;
     if (NamedValues.find(varName) != NamedValues.end()) {
@@ -410,6 +443,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
+  // "TYPE" operator.
   if (strcmp(node->type, "TYPE") == 0) {
     Type *targetType = nullptr;
     if (strcmp(node->left->type, "IDENTIFIER") == 0) {
@@ -444,6 +478,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return typeStr;
   }
   
+  // Declarations for specific types.
   if (strcmp(node->type, "DECL_INT") == 0) {
     std::string varName = node->value;
     if (NamedValues.find(varName) != NamedValues.end()) {

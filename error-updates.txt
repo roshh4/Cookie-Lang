@@ -21,8 +21,6 @@ Next update
 1.functions 
 
 -----------------------------
-print(toshini);
-no declaration but outputs zero
 
 scanf
 
