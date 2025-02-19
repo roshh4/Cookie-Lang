@@ -1,34 +1,4 @@
-int a = 10;
-int b = 10;
-int c = 20;
-int d = 30;
-
-if ( (a less than equals 10) and (c less than d) ){
-  print("hello");
+char b = 'X''''';
+if ( b == 'X'''''''' ){
+  print(b);
 }
-if ( (a less than equals 10) or (c greater than d) ){
-  print("hello");
-}
-
-int i = 10;
-loop until ( i < 0 ){
-    print(i);
-    i = i - 1; 
-}
-
-int j = 10;
-while until j < 0 {
-    print(j);
-    j = j - 1; 
-}
-
-int a = 10;
-int b = 10;
-if ( a == 10 ){
-   print("both are equal");
-}
-
-if ( a equals b ){
-  print("both are equal");
-}
-
