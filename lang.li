@@ -1,75 +1,19 @@
-int a = 5;
-int b = 10;
+int a;
+input(a);
+print(a);
 
+float b;
+input(b);
+print(b);
 
-if (a < b) {
-    print("Using <: a is less than b");
-}
+bool c;
+input(c);
+print(c);
 
-if (b >= a) {
-    print("Using >=: b is greater than or equal to a");
-}
+char d;
+input(d);
+print(d);
 
-if (a == 5) {
-    print("Using ==: a equals 5");
-}
-
-
-if (a less than b) {
-    print("Using 'less than': a is less than b");
-}
-
-if (b greater than equals a) {
-    print("Using 'greater than equals': b is greater than or equal to a");
-}
-
-if (a equals 5) {
-    print("Using 'equals': a equals 5");
-}
-
-print("-------------------------------");
-
-int a = 5;
-int b = 10;
-
-
-if ((a < b) and (b less than 20)) {
-    print("Using 'and': Both conditions are true");
-}
-
-
-if ((a < b) && (b < 20)) {
-    print("Using '&&': Both conditions are true");
-}
-
-
-if ((a > b) or (a == 5)) {
-    print("Using 'or': At least one condition is true");
-}
-
-if ((a > b) || (a == 5)) {
-    print("Using '||': At least one condition is true");
-}
-
-loop 3 {
-    print("Count-controlled loop iteration");
-}
-
-
-var i = 0;
-loop until (i equals 7) {
-    print(i);
-    i = i + 1;
-}
-
-comment: hiii this is a comment 
-if (a equals 5) {
-    print("a equals 5"); 
-}
-// equals check
-int m = 10;
-int n = 10;
-if (n equals m) {
-  print("hello");
-}
- 
+str e;
+input(e);
+print(e);

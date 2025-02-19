@@ -27,3 +27,8 @@ no declaration but outputs zero
 scanf
 
 loop ---> indise ----> while 
+
+--------
+if no code present in lang.li , it shows 
+Error: syntax error
+lli: Symbols not found: [ _main ]
