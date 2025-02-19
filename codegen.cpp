@@ -56,17 +56,17 @@ GlobalVariable* getFormatStringInt() {
   }
   return fmtStrVar;
 }
+
 GlobalVariable* getFormatStringFloat() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_float");
   if (!fmtStrVar) {
-    // Use "%.1f\n" so that whole numbers show a .0 and non-whole numbers show one decimal digit.
+    // Use "%.1f\n" so that whole-number floats print with a trailing .0.
     Constant *formatStr = ConstantDataArray::getString(Context, "%.1f\n", true);
     fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
                                    GlobalValue::PrivateLinkage, formatStr, ".str_float");
   }
   return fmtStrVar;
 }
-
 
 GlobalVariable* getFormatStringChar() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_char");
@@ -77,6 +77,7 @@ GlobalVariable* getFormatStringChar() {
   }
   return fmtStrVar;
 }
+
 GlobalVariable* getFormatStringStr() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_string");
   if (!fmtStrVar) {
@@ -144,7 +145,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
     }
   }
-  
   
   // Unary minus.
   if (strcmp(node->type, "NEG") == 0) {
@@ -315,7 +315,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
-  
   // Handle printing.
   if (strcmp(node->type, "PRINT") == 0) {
     Value *exprVal = generateIR(node->left, currentFunction);
@@ -349,6 +348,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       exprVal = boolStr;
     } else if (exprType->isFloatTy()) {
       fmtStrVar = getFormatStringFloat();
+      // Extend float to double for printing.
       exprVal = Builder.CreateFPExt(exprVal, Type::getDoubleTy(Context), "toDouble");
     } else if (exprType->isIntegerTy(8)) {
       fmtStrVar = getFormatStringChar();
@@ -365,6 +365,56 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
     Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
     return exprVal;
+  }
+  
+  // Handle if statement.
+  if (strcmp(node->type, "IF") == 0) {
+    Value *condVal = generateIR(node->left, currentFunction);
+    if (!condVal) {
+      std::cerr << "Error: Invalid condition in if statement\n";
+      return nullptr;
+    }
+    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifcond");
+    BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "ifcont", currentFunction);
+    Builder.CreateCondBr(condVal, thenBB, mergeBB);
+    Builder.SetInsertPoint(thenBB);
+    generateIR(node->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // Handle if-else statement.
+  if (strcmp(node->type, "IF_ELSE") == 0) {
+    // For IF_ELSE, node->left is the condition.
+    // node->right is a special node (of type "IF_ELSE_BODY")
+    //   where its left child is the "then" branch and right child is the "else" branch.
+    Value *condVal = generateIR(node->left, currentFunction);
+    if (!condVal) {
+      std::cerr << "Error: Invalid condition in if-else statement\n";
+      return nullptr;
+    }
+    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifelsecond");
+    BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
+    BasicBlock *elseBB = BasicBlock::Create(Context, "else", currentFunction);
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "ifelsecont", currentFunction);
+    Builder.CreateCondBr(condVal, thenBB, elseBB);
+    
+    // Then branch.
+    Builder.SetInsertPoint(thenBB);
+    generateIR(node->right->left, currentFunction);
+    Builder.CreateBr(mergeBB);
+    
+    // Else branch.
+    Builder.SetInsertPoint(elseBB);
+    generateIR(node->right->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
   // Loop: "LOOP" with a counter.

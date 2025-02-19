@@ -5,7 +5,7 @@
 #include "ast.h"
 extern int yylex();
 void yyerror(const char *s);
-ASTNode *root;  // Global AST root
+ASTNode *root;  // Global AST root.
 %}
 
 %code requires {
@@ -19,7 +19,7 @@ ASTNode *root;  // Global AST root
 }
 
 /* Token declarations */
-%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE
+%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE ELSE
 %token LT GT
 %token LE GE
 %token EQ
@@ -27,18 +27,13 @@ ASTNode *root;  // Global AST root
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
-/* Nonterminals are all of type ASTNode* */
+/* Nonterminals (all ASTNode*) */
 %type <node> program statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary
 
 /* Set the start symbol */
 %start program
 
-/* Grammar: We split the expression into several levels so that equality (== or equals)
-   is handled separately from relational (<, >, <=, >=) and additive/multiplicative operations.
-   Precedence is enforced by the grammar structure.
-*/
 %%
-
 program:
     statements { root = $1; }
     ;
@@ -48,15 +43,12 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* New looping constructs */
-/* "loop until ( expression ) { statements }" */
+/* Add if and if-else statements */
 statement:
       LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
-    /* "while until expression { statements }" */
     | WHILE UNTIL expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $3, $5); }
-    /* Existing statements */
     | INT IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_INT", $2, $4, NULL); }
     | FLOAT IDENTIFIER ASSIGN expression SEMICOLON
@@ -77,8 +69,12 @@ statement:
           { $$ = createASTNode("PRINT", NULL, $3, NULL); }
     | LOOP expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP", NULL, $2, $4); }
+    /* if without else */
     | IF LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("IF", NULL, $3, $6); }
+    /* if-else */
+    | IF LPAREN expression RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE
+          { $$ = createASTNode("IF_ELSE", NULL, $3, createASTNode("IF_ELSE_BODY", NULL, $6, $10)); }
     | INT IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_INT", $2, NULL, NULL); }
     | FLOAT IDENTIFIER SEMICOLON

@@ -34,6 +34,7 @@
 "print"                                   { return PRINT; }
 "loop"                                    { return LOOP; }
 "if"                                      { return IF; }
+"else"                                    { return ELSE; }
 "<"                                       { return LT; }
 ">"                                       { return GT; }
 "="                                       { return ASSIGN; }
