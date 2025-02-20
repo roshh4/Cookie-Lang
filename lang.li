@@ -1,19 +1,28 @@
-int a;
-input(a);
-print(a);
+int a = 5;
+int b = 10;
 
-float b;
-input(b);
-print(b);
+// Using symbols:
+if (a < b) {
+    print("Using <: a is less than b");
+}
 
-bool c;
-input(c);
-print(c);
+if (b >= a) {
+    print("Using >=: b is greater than or equal to a");
+}
 
-char d;
-input(d);
-print(d);
+if (a == 5) {
+    print("Using ==: a equals 5");
+}
 
-str e;
-input(e);
-print(e);
+// Using keywords:
+if (a less than b) {
+    print("Using 'less than': a is less than b");
+}
+
+if (b greater than equals a) {
+    print("Using 'greater than equals': b is greater than or equal to a");
+}
+
+if (a equals 5) {
+    print("Using 'equals': a equals 5");
+}

@@ -7,7 +7,6 @@ gcc -c lex.yy.c -o lex.yy.o
 g++ -c codegen.cpp -o codegen.o $(llvm-config --cxxflags)
 g++ ast.o parser.tab.o lex.yy.o codegen.o -o compiler $(llvm-config --ldflags --libs core)
 Get-Content .\lang.li | .\compiler > output.ll
-lli output.ll
 lli -load ./libruntime.so output.ll
 
 to remove the built files:

@@ -28,12 +28,13 @@ ASTNode *root;  // Global AST root.
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
 /* Nonterminals (all ASTNode*) */
-%type <node> program statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary
+%type <node> program statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 
 /* Set the start symbol */
 %start program
 
 %%
+
 program:
     statements { root = $1; }
     ;
@@ -43,10 +44,20 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* Input statement added */
+/* Merged statement rules */
 statement:
-      INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
+    /* Input statement */
+    INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
+    | IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
+          {
+            if ($8 == NULL) {
+              $$ = createASTNode("IF", NULL, $3, $6);
+            } else {
+              $$ = createASTNode("IF_CHAIN", NULL,
+                        createASTNode("IF", NULL, $3, $6), $8);
+            }
+          }
     | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
@@ -71,12 +82,6 @@ statement:
           { $$ = createASTNode("PRINT", NULL, $3, NULL); }
     | LOOP expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP", NULL, $2, $4); }
-    /* if without else */
-    | IF LPAREN expression RPAREN LBRACE statements RBRACE
-          { $$ = createASTNode("IF", NULL, $3, $6); }
-    /* if-else */
-    | IF LPAREN expression RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE
-          { $$ = createASTNode("IF_ELSE", NULL, $3, createASTNode("IF_ELSE_BODY", NULL, $6, $10)); }
     | INT IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_INT", $2, NULL, NULL); }
     | FLOAT IDENTIFIER SEMICOLON
@@ -87,6 +92,25 @@ statement:
           { $$ = createASTNode("DECL_CHAR", $2, NULL, NULL); }
     | STRING IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_STRING", $2, NULL, NULL); }
+    ;
+
+/* Else-if ladder or else */
+else_if_ladder_opt:
+      /* empty */ { $$ = NULL; }
+    | ELSE if_ladder { $$ = $2; }
+    ;
+
+if_ladder:
+    /* else if */
+    IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
+          {
+            $$ = createASTNode("ELSE_IF", NULL, $3,
+                      createASTNode("IF_ELSE_BODY", NULL, $6, $8));
+          }
+    |
+    /* else */
+    LBRACE statements RBRACE
+          { $$ = createASTNode("ELSE", NULL, $2, NULL); }
     ;
 
 expression:
