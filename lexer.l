@@ -40,7 +40,9 @@
 "loop"                                   { return LOOP; }
 "if"                                     { return IF; }
 "else"                                   { return ELSE; }
-"is"                                     { return IS; }
+"fun"                                    { return FUN; }
+"return"                                 { return RETURN; }
+","                                      { return COMMA; }
 "<"                                      { return LT; }
 ">"                                      { return GT; }
 "="                                      { return ASSIGN; }

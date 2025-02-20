@@ -12,7 +12,7 @@ ASTNode *root;  // Global AST root.
   #include "ast.h"
 }
 
-/* Declare the union type used for semantic values */
+/* Semantic value union */
 %union {
     char* str;
     ASTNode* node;
@@ -27,9 +27,9 @@ ASTNode *root;  // Global AST root.
 %token NOT
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
+%token FUN RETURN COMMA
 
-/* Precedence and associativity declarations */
-/* Lowest precedence first */
+/* Precedence declarations */
 %right ASSIGN IS
 %left OR
 %left AND
@@ -37,18 +37,66 @@ ASTNode *root;  // Global AST root.
 %nonassoc LT GT LE GE
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
-%right NOT NEG
 
-/* Nonterminals (all ASTNode*) */
-%type <node> program statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 
-/* Set the start symbol */
+/* Nonterminals */
+%type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
+%type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
+
+/* Start symbol */
 %start program
 
 %%
 
 program:
-    statements { root = $1; }
+    global_declarations { root = $1; }
+    ;
+
+global_declarations:
+      global_declaration { $$ = $1; }
+    | global_declarations global_declaration { $$ = createASTNode("GLOBAL_LIST", NULL, $1, $2); }
+    ;
+
+global_declaration:
+      function_definition { $$ = $1; }
+    | statement { $$ = $1; }
+    ;
+
+function_definition:
+    FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
+          { $$ = createASTNode("FUNC_DEF", $2, $4, $7); }
+    ;
+
+parameter_list_opt:
+      /* empty */ { $$ = NULL; }
+    | parameter_list { $$ = $1; }
+    ;
+
+parameter_list:
+      parameter { $$ = $1; }
+    | parameter_list COMMA parameter { $$ = createASTNode("PARAM_LIST", NULL, $1, $3); }
+    ;
+
+parameter:
+      INT IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "int", NULL, NULL), NULL); }
+    | FLOAT IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "float", NULL, NULL), NULL); }
+    | BOOL IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "bool", NULL, NULL), NULL); }
+    | CHAR IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "char", NULL, NULL), NULL); }
+    | STRING IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "string", NULL, NULL), NULL); }
+    ;
+
+function_body:
+    statements { $$ = $1; }
+    ;
+
+argument_list_opt:
+      /* empty */ { $$ = NULL; }
+    | argument_list { $$ = $1; }
+    ;
+
+argument_list:
+      expression { $$ = $1; }
+    | argument_list COMMA expression { $$ = createASTNode("ARG_LIST", NULL, $1, $3); }
     ;
 
 statements:
@@ -56,9 +104,7 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* Merged statement rules */
 statement:
-    /* Input statement */
     INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
     | IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
@@ -74,7 +120,6 @@ statement:
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $3, $5); }
-    /* Variable declarations with assignment: allow ASSIGN or IS */
     | INT IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_INT", $2, $4, NULL); }
     | INT IDENTIFIER IS expression SEMICOLON
@@ -117,23 +162,25 @@ statement:
           { $$ = createASTNode("DECL_CHAR", $2, NULL, NULL); }
     | STRING IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_STRING", $2, NULL, NULL); }
+    | RETURN LPAREN expression RPAREN SEMICOLON
+          { $$ = createASTNode("RETURN", NULL, $3, NULL); }
+    /* Function call as a statement */
+    | IDENTIFIER LPAREN argument_list_opt RPAREN SEMICOLON
+          { $$ = createASTNode("CALL", $1, $3, NULL); }
     ;
 
-/* Else-if ladder or else */
 else_if_ladder_opt:
       /* empty */ { $$ = NULL; }
     | ELSE if_ladder { $$ = $2; }
     ;
 
 if_ladder:
-    /* else if */
     IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
           {
             $$ = createASTNode("ELSE_IF", NULL, $3,
                       createASTNode("IF_ELSE_BODY", NULL, $6, $8));
           }
     |
-    /* else */
     LBRACE statements RBRACE
           { $$ = createASTNode("ELSE", NULL, $2, NULL); }
     ;
@@ -152,7 +199,6 @@ logical_and_expression:
     | equality_expression { $$ = $1; }
     ;
 
-/* Equality: added binary "not equals" (NE) */
 equality_expression:
       equality_expression EQ relational_expression { $$ = createASTNode("EQ", "==", $1, $3); }
     | equality_expression NE relational_expression { $$ = createASTNode("NE", "!=", $1, $3); }
@@ -179,7 +225,6 @@ multiplicative_expression:
     | primary { $$ = $1; }
     ;
 
-/* Primary expressions including the new unary NOT operator */
 primary:
       NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
     | MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
@@ -188,6 +233,7 @@ primary:
     | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
     | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
+    | IDENTIFIER LPAREN argument_list_opt RPAREN { $$ = createASTNode("CALL", $1, $3, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
     ;

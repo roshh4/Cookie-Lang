@@ -1,5 +1,13 @@
-int x = 10;
-int y = 15;
-if (x lesser than y){
-    print("hello");
+fun sum ( int a , int b ){
+  int x = a + b ;
+  return(x);
 }
+fun sub ( int a , int b ){
+    int y = a - b ;
+    print(y);
+}
+int a = 10;
+int b = 20;
+int y = sum ( a , b );
+print(y);
+sub( a , b);
