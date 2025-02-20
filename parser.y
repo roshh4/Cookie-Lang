@@ -22,11 +22,22 @@ ASTNode *root;  // Global AST root.
 %token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN IS SEMICOLON LPAREN RPAREN LBRACE RBRACE ELSE INPUT
 %token LT GT
 %token LE GE
-%token EQ NE      /* Added NE for not equals */
+%token EQ NE
 %token AND OR
-%token NOT        /* Added NOT for unary not */
+%token NOT
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
+
+/* Precedence and associativity declarations */
+/* Lowest precedence first */
+%right ASSIGN IS
+%left OR
+%left AND
+%nonassoc EQ NE
+%nonassoc LT GT LE GE
+%left PLUS MINUS
+%left MULTIPLY DIVIDE
+%right NOT NEG
 
 /* Nonterminals (all ASTNode*) */
 %type <node> program statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder

@@ -1,0 +1,10 @@
+int x = 0;
+
+loop 5{
+    loop until (x == 1){
+        print("inner");
+        x=1;
+    }
+    print("outer");
+    x = 1;
+}

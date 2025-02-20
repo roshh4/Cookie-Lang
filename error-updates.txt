@@ -1,5 +1,4 @@
 operators
-2.precidence
 
 ---------------------------
 variables
@@ -12,7 +11,6 @@ variables
 Next update 
 1. for
 2. while
-3. else....
 
 ---------------------------------------------
 

@@ -40,7 +40,7 @@
 "loop"                                   { return LOOP; }
 "if"                                     { return IF; }
 "else"                                   { return ELSE; }
-"is"                                     { return IS; }        /* New: alternative assignment keyword */
+"is"                                     { return IS; }
 "<"                                      { return LT; }
 ">"                                      { return GT; }
 "="                                      { return ASSIGN; }
@@ -55,7 +55,7 @@
 "/"                                      { return DIVIDE; }
 [0-9]+\.[0-9]+                          { yylval.str = strdup(yytext); return FLOAT_NUMBER; }
 [0-9]+                                   { yylval.str = strdup(yytext); return NUMBER; }
-"'"[^\']"'"                             { yylval.str = strdup(yytext); return CHAR_LITERAL; }
+"'"[^\']"'"                              { yylval.str = strdup(yytext); return CHAR_LITERAL; }
 \"[^\"]*\"                              { yylval.str = strdup(yytext); return STRING_LITERAL; }
 [a-zA-Z_][a-zA-Z0-9_]*                    { yylval.str = strdup(yytext); return IDENTIFIER; }
 [ \t\n]+                                ;
