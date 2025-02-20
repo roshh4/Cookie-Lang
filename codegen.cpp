@@ -298,6 +298,27 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Value *R = generateIR(node->right, currentFunction);
     return Builder.CreateOr(L, R, "ortmp");
   }
+
+  // --- Not Equals operator ---
+if (strcmp(node->type, "NE") == 0) {
+  Value *L = generateIR(node->left, currentFunction);
+  Value *R = generateIR(node->right, currentFunction);
+  if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
+    return Builder.CreateFCmpONE(L, R, "netmp");
+  else
+    return Builder.CreateICmpNE(L, R, "netmp");
+}
+
+// --- Unary NOT operator ---
+if (strcmp(node->type, "NOT") == 0) {
+  Value *val = generateIR(node->left, currentFunction);
+  // If already a boolean (i1) use the LLVM not operator.
+  if (val->getType()->isIntegerTy() && val->getType()->getIntegerBitWidth() == 1)
+    return Builder.CreateNot(val, "nottmp");
+  // Otherwise, compare against zero.
+  return Builder.CreateICmpEQ(val, ConstantInt::get(val->getType(), 0), "nottmp");
+}
+
   
   // --- Assignments ---
   if (strcmp(node->type, "ASSIGN_INT") == 0 ||

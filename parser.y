@@ -19,11 +19,12 @@ ASTNode *root;  // Global AST root.
 }
 
 /* Token declarations */
-%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE ELSE INPUT
+%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN IS SEMICOLON LPAREN RPAREN LBRACE RBRACE ELSE INPUT
 %token LT GT
 %token LE GE
-%token EQ
+%token EQ NE      /* Added NE for not equals */
 %token AND OR
+%token NOT        /* Added NOT for unary not */
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 
@@ -62,17 +63,30 @@ statement:
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $3, $5); }
+    /* Variable declarations with assignment: allow ASSIGN or IS */
     | INT IDENTIFIER ASSIGN expression SEMICOLON
+          { $$ = createASTNode("ASSIGN_INT", $2, $4, NULL); }
+    | INT IDENTIFIER IS expression SEMICOLON
           { $$ = createASTNode("ASSIGN_INT", $2, $4, NULL); }
     | FLOAT IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_FLOAT", $2, $4, NULL); }
+    | FLOAT IDENTIFIER IS expression SEMICOLON
+          { $$ = createASTNode("ASSIGN_FLOAT", $2, $4, NULL); }
     | BOOL IDENTIFIER ASSIGN BOOLEAN SEMICOLON
+          { $$ = createASTNode("ASSIGN_BOOL", $2, createASTNode("BOOLEAN", $4, NULL, NULL), NULL); }
+    | BOOL IDENTIFIER IS BOOLEAN SEMICOLON
           { $$ = createASTNode("ASSIGN_BOOL", $2, createASTNode("BOOLEAN", $4, NULL, NULL), NULL); }
     | CHAR IDENTIFIER ASSIGN CHAR_LITERAL SEMICOLON
           { $$ = createASTNode("ASSIGN_CHAR", $2, createASTNode("CHAR", $4, NULL, NULL), NULL); }
+    | CHAR IDENTIFIER IS CHAR_LITERAL SEMICOLON
+          { $$ = createASTNode("ASSIGN_CHAR", $2, createASTNode("CHAR", $4, NULL, NULL), NULL); }
     | STRING IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL); }
+    | STRING IDENTIFIER IS expression SEMICOLON
+          { $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL); }
     | VAR IDENTIFIER ASSIGN expression SEMICOLON
+          { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
+    | VAR IDENTIFIER IS expression SEMICOLON
           { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
     | TYPE LPAREN expression RPAREN
           { $$ = createASTNode("TYPE", NULL, $3, NULL); }
@@ -127,13 +141,15 @@ logical_and_expression:
     | equality_expression { $$ = $1; }
     ;
 
+/* Equality: added binary "not equals" (NE) */
 equality_expression:
-    equality_expression EQ relational_expression { $$ = createASTNode("EQ", "==", $1, $3); }
+      equality_expression EQ relational_expression { $$ = createASTNode("EQ", "==", $1, $3); }
+    | equality_expression NE relational_expression { $$ = createASTNode("NE", "!=", $1, $3); }
     | relational_expression { $$ = $1; }
     ;
 
 relational_expression:
-    relational_expression LT additive_expression { $$ = createASTNode("LT", "<", $1, $3); }
+      relational_expression LT additive_expression { $$ = createASTNode("LT", "<", $1, $3); }
     | relational_expression GT additive_expression { $$ = createASTNode("GT", ">", $1, $3); }
     | relational_expression LE additive_expression { $$ = createASTNode("LE", "<=", $1, $3); }
     | relational_expression GE additive_expression { $$ = createASTNode("GE", ">=", $1, $3); }
@@ -141,19 +157,21 @@ relational_expression:
     ;
 
 additive_expression:
-    additive_expression PLUS multiplicative_expression { $$ = createASTNode("ADD", "+", $1, $3); }
+      additive_expression PLUS multiplicative_expression { $$ = createASTNode("ADD", "+", $1, $3); }
     | additive_expression MINUS multiplicative_expression { $$ = createASTNode("SUB", "-", $1, $3); }
     | multiplicative_expression { $$ = $1; }
     ;
 
 multiplicative_expression:
-    multiplicative_expression MULTIPLY primary { $$ = createASTNode("MUL", "*", $1, $3); }
+      multiplicative_expression MULTIPLY primary { $$ = createASTNode("MUL", "*", $1, $3); }
     | multiplicative_expression DIVIDE primary { $$ = createASTNode("DIV", "/", $1, $3); }
     | primary { $$ = $1; }
     ;
 
+/* Primary expressions including the new unary NOT operator */
 primary:
-    MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
+      NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
+    | MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
     | NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
     | FLOAT_NUMBER { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
     | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }

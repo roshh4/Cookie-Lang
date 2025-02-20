@@ -1,6 +1,4 @@
 operators
-1.logical
-2.relational 
 2.precidence
 
 ---------------------------
@@ -35,8 +33,4 @@ if no code present in lang.li , it shows
 Error: syntax error
 lli: Symbols not found: [ _main ]
 
-
-additional:
-not
-is for assigneme
 >>>>>>> edcd63598020cad2e1eb45ff5dcaa29444822b55
