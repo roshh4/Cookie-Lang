@@ -21,7 +21,12 @@ Next update
 1.functions 
 
 -----------------------------
-
-scanf
-
 loop ---> indise ----> while 
+
+
+---------------------------------
+1. bool c;
+input(c);
+print(c);
+
+c prints false need to rectify 

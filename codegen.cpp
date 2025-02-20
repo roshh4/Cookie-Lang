@@ -60,7 +60,6 @@ GlobalVariable* getFormatStringInt() {
 GlobalVariable* getFormatStringFloat() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_float");
   if (!fmtStrVar) {
-    // Use "%.1f\n" so that whole-number floats print with a trailing .0.
     Constant *formatStr = ConstantDataArray::getString(Context, "%.1f\n", true);
     fmtStrVar = new GlobalVariable(*TheModule, formatStr->getType(), true,
                                    GlobalValue::PrivateLinkage, formatStr, ".str_float");
@@ -101,11 +100,53 @@ Function* getConcatFunction() {
   return concatFunc;
 }
 
+// --- New: Input runtime functions (from second file) ---
+Function* getReadIntFunction() {
+  Function *readIntFunc = TheModule->getFunction("read_int");
+  if (!readIntFunc) {
+    FunctionType* funcType = FunctionType::get(Type::getInt32Ty(Context), false);
+    readIntFunc = Function::Create(funcType, Function::ExternalLinkage, "read_int", TheModule);
+  }
+  return readIntFunc;
+}
+Function* getReadFloatFunction() {
+  Function *readFloatFunc = TheModule->getFunction("read_float");
+  if (!readFloatFunc) {
+    FunctionType* funcType = FunctionType::get(Type::getFloatTy(Context), false);
+    readFloatFunc = Function::Create(funcType, Function::ExternalLinkage, "read_float", TheModule);
+  }
+  return readFloatFunc;
+}
+Function* getReadBoolFunction() {
+  Function *readBoolFunc = TheModule->getFunction("read_bool");
+  if (!readBoolFunc) {
+    FunctionType* funcType = FunctionType::get(Type::getInt1Ty(Context), false);
+    readBoolFunc = Function::Create(funcType, Function::ExternalLinkage, "read_bool", TheModule);
+  }
+  return readBoolFunc;
+}
+Function* getReadCharFunction() {
+  Function *readCharFunc = TheModule->getFunction("read_char");
+  if (!readCharFunc) {
+    FunctionType* funcType = FunctionType::get(Type::getInt8Ty(Context), false);
+    readCharFunc = Function::Create(funcType, Function::ExternalLinkage, "read_char", TheModule);
+  }
+  return readCharFunc;
+}
+Function* getReadStringFunction() {
+  Function *readStrFunc = TheModule->getFunction("read_string");
+  if (!readStrFunc) {
+    FunctionType* funcType = FunctionType::get(PointerType::get(Type::getInt8Ty(Context), 0), false);
+    readStrFunc = Function::Create(funcType, Function::ExternalLinkage, "read_string", TheModule);
+  }
+  return readStrFunc;
+}
+
 // Generate LLVM IR from AST.
 Value *generateIR(ASTNode *node, Function* currentFunction) {
   if (!node) return nullptr;
   
-  // Numeric literals.
+  // --- Literals ---
   if (strcmp(node->type, "NUMBER") == 0)
     return ConstantInt::get(Type::getInt32Ty(Context), atoi(node->value));
   
@@ -130,23 +171,23 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
   }
   
-  // Identifier lookup.
+  // --- Identifier lookup ---
   if (strcmp(node->type, "IDENTIFIER") == 0) {
     Value* varPtr = NamedValues[node->value];
     if (!varPtr) {
-      llvm::report_fatal_error(Twine("Error: Unknown variable '") + node->value + "'");
+      report_fatal_error(Twine("Error: Unknown variable '") + node->value + "'");
     }
     if (AllocaInst *alloca = dyn_cast<AllocaInst>(varPtr))
       return Builder.CreateLoad(alloca->getAllocatedType(), varPtr, node->value);
     else {
       PointerType *ptrType = dyn_cast<PointerType>(varPtr->getType());
       if (!ptrType || ptrType->getNumContainedTypes() < 1)
-        llvm::report_fatal_error(Twine("Error: Variable ") + node->value + " is not a proper pointer type!");
+        report_fatal_error(Twine("Error: Variable ") + node->value + " is not a proper pointer type!");
       return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
     }
   }
   
-  // Unary minus.
+  // --- Unary minus ---
   if (strcmp(node->type, "NEG") == 0) {
     Value *val = generateIR(node->left, currentFunction);
     if (val->getType()->isFloatTy())
@@ -155,10 +196,11 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateNeg(val, "negtmp");
   }
   
-  // Addition (including string concatenation).
+  // --- Binary Arithmetic Operations ---
   if (strcmp(node->type, "ADD") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
+    // String concatenation case.
     if (L->getType() == PointerType::get(Type::getInt8Ty(Context), 0) &&
         R->getType() == PointerType::get(Type::getInt8Ty(Context), 0)) {
       Function *concatFunc = getConcatFunction();
@@ -168,6 +210,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       R = Builder.CreateSIToFP(R, Type::getFloatTy(Context), "intToFloat");
     else if (L->getType()->isIntegerTy() && R->getType()->isFloatTy())
       L = Builder.CreateSIToFP(L, Type::getFloatTy(Context), "intToFloat");
+    
     if (L->getType()->isFloatTy() && R->getType()->isFloatTy())
       return Builder.CreateFAdd(L, R, "faddtmp");
     return Builder.CreateAdd(L, R, "addtmp");
@@ -197,7 +240,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateSDiv(L, R, "divtmp");
   }
   
-  // Relational operators.
+  // --- Relational Operators ---
   if (strcmp(node->type, "LT") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -243,6 +286,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateICmpEQ(L, R, "eqtmp");
   }
   
+  // --- Logical Operators ---
   if (strcmp(node->type, "AND") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -255,7 +299,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateOr(L, R, "ortmp");
   }
   
-  // Handle assignments.
+  // --- Assignments ---
   if (strcmp(node->type, "ASSIGN_INT") == 0 ||
       strcmp(node->type, "ASSIGN_FLOAT") == 0 ||
       strcmp(node->type, "ASSIGN_BOOL") == 0 ||
@@ -294,7 +338,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     std::string varName = node->value;
     Value *varPtr = NamedValues[varName];
     if (!varPtr) {
-      llvm::report_fatal_error(Twine("Error: Undeclared variable '") + varName + "'");
+      report_fatal_error(Twine("Error: Undeclared variable '") + varName + "'");
     }
     Value *exprVal = generateIR(node->left, currentFunction);
     if (AllocaInst *AI = dyn_cast<AllocaInst>(varPtr)) {
@@ -308,7 +352,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
-  // Handle printing.
+  // --- PRINT ---
   if (strcmp(node->type, "PRINT") == 0) {
     Value *exprVal = generateIR(node->left, currentFunction);
     Type *exprType = exprVal->getType();
@@ -359,94 +403,44 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
-  // --- Handling the new if / else-if ladder nodes ---
-  
-  // Handle a plain if statement (without an else chain).
-  if (strcmp(node->type, "IF") == 0) {
-    Value *condVal = generateIR(node->left, currentFunction);
-    if (!condVal) {
-      std::cerr << "Error: Invalid condition in if statement\n";
-      return nullptr;
+  // --- INPUT (new functionality from second file) ---
+  if (strcmp(node->type, "INPUT") == 0) {
+    std::string varName = node->value;
+    Value *varPtr = NamedValues[varName];
+    // If not declared, auto-create as int.
+    if (!varPtr) {
+      varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt32Ty(Context));
+      NamedValues[varName] = varPtr;
     }
-    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
-      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifcond");
-    BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
-    BasicBlock *mergeBB = BasicBlock::Create(Context, "ifcont", currentFunction);
-    Builder.CreateCondBr(condVal, thenBB, mergeBB);
-    Builder.SetInsertPoint(thenBB);
-    generateIR(node->right, currentFunction);
-    Builder.CreateBr(mergeBB);
-    Builder.SetInsertPoint(mergeBB);
-    return ConstantInt::get(Type::getInt32Ty(Context), 0);
-  }
-  
-  // Handle if-chain (if with one or more else-if / else parts).
-  if (strcmp(node->type, "IF_CHAIN") == 0) {
-    // node->left is an "IF" node; node->right is the chain (ELSE_IF or ELSE)
-    Value *condVal = generateIR(node->left->left, currentFunction);
-    if (!condVal) {
-      std::cerr << "Error: Invalid condition in if-chain\n";
-      return nullptr;
+    if (AllocaInst *allocaInst = dyn_cast<AllocaInst>(varPtr)) {
+      Type *allocatedType = allocaInst->getAllocatedType();
+      Value *inputVal = nullptr;
+      if (allocatedType == Type::getInt32Ty(Context)) {
+        inputVal = Builder.CreateCall(getReadIntFunction(), {}, "readInt");
+      } else if (allocatedType == Type::getFloatTy(Context)) {
+        inputVal = Builder.CreateCall(getReadFloatFunction(), {}, "readFloat");
+      } else if (allocatedType == Type::getInt1Ty(Context)) {
+        inputVal = Builder.CreateCall(getReadBoolFunction(), {}, "readBool");
+      } else if (allocatedType == Type::getInt8Ty(Context)) {
+        inputVal = Builder.CreateCall(getReadCharFunction(), {}, "readChar");
+      } else if (allocatedType->isPointerTy() &&
+                 allocatedType == PointerType::get(Type::getInt8Ty(Context), 0)) {
+        inputVal = Builder.CreateCall(getReadStringFunction(), {}, "readStr");
+      } else {
+        GlobalVariable *fmtStrVar = getFormatStringStr();
+        Constant *errMsg = Builder.CreateGlobalStringPtr("Input Is not of the expected type\n", "errMsg");
+        Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+        std::vector<Constant*> indices = {zero, zero};
+        Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
+        Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, errMsg});
+        inputVal = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      }
+      Builder.CreateStore(inputVal, varPtr);
+      return inputVal;
     }
-    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
-      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifchaincond");
-    BasicBlock *thenBB = BasicBlock::Create(Context, "if.chain.then", currentFunction);
-    BasicBlock *elseBB = BasicBlock::Create(Context, "if.chain.else", currentFunction);
-    BasicBlock *mergeBB = BasicBlock::Create(Context, "if.chain.merge", currentFunction);
-    Builder.CreateCondBr(condVal, thenBB, elseBB);
-    Builder.SetInsertPoint(thenBB);
-    generateIR(node->left->right, currentFunction);
-    Builder.CreateBr(mergeBB);
-    Builder.SetInsertPoint(elseBB);
-    generateIR(node->right, currentFunction);
-    Builder.CreateBr(mergeBB);
-    Builder.SetInsertPoint(mergeBB);
-    return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // Handle an else-if node.
-  if (strcmp(node->type, "ELSE_IF") == 0) {
-    // node->left is the condition; node->right is an IF_ELSE_BODY.
-    Value *condVal = generateIR(node->left, currentFunction);
-    if (!condVal) {
-      std::cerr << "Error: Invalid condition in else-if statement\n";
-      return nullptr;
-    }
-    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
-      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "elseifcond");
-    BasicBlock *thenBB = BasicBlock::Create(Context, "elseif.then", currentFunction);
-    BasicBlock *elseBB = BasicBlock::Create(Context, "elseif.else", currentFunction);
-    BasicBlock *mergeBB = BasicBlock::Create(Context, "elseif.merge", currentFunction);
-    Builder.CreateCondBr(condVal, thenBB, elseBB);
-    Builder.SetInsertPoint(thenBB);
-    // The then branch is stored in the IF_ELSE_BODY (its left child).
-    generateIR(node->right->left, currentFunction);
-    Builder.CreateBr(mergeBB);
-    Builder.SetInsertPoint(elseBB);
-    // The else branch of the IF_ELSE_BODY (if any) is the next chain.
-    if (node->right->right)
-      generateIR(node->right->right, currentFunction);
-    Builder.CreateBr(mergeBB);
-    Builder.SetInsertPoint(mergeBB);
-    return ConstantInt::get(Type::getInt32Ty(Context), 0);
-  }
-  
-  // Handle an else block.
-  if (strcmp(node->type, "ELSE") == 0) {
-    generateIR(node->left, currentFunction);
-    return ConstantInt::get(Type::getInt32Ty(Context), 0);
-  }
-  
-  // (Optionally, handle the IF_ELSE_BODY node if it is encountered directly.)
-  if (strcmp(node->type, "IF_ELSE_BODY") == 0) {
-    if (node->left)
-      generateIR(node->left, currentFunction);
-    if (node->right)
-      generateIR(node->right, currentFunction);
-    return ConstantInt::get(Type::getInt32Ty(Context), 0);
-  }
-  
-  // Loop: "LOOP" with a counter.
+  // --- LOOP ---
   if (strcmp(node->type, "LOOP") == 0) {
     Value *loopCountVal = generateIR(node->left, currentFunction);
     if (!loopCountVal) {
@@ -475,7 +469,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // Loop until: "LOOP_UNTIL" (for both "loop until" and "while until").
+  // --- LOOP_UNTIL ---
   if (strcmp(node->type, "LOOP_UNTIL") == 0) {
     BasicBlock *condBB = BasicBlock::Create(Context, "until.cond", currentFunction);
     BasicBlock *loopBB = BasicBlock::Create(Context, "until.body", currentFunction);
@@ -494,7 +488,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // Statement list.
+  // --- STATEMENT_LIST ---
   if (strcmp(node->type, "STATEMENT_LIST") == 0) {
     if (node->left)
       generateIR(node->left, currentFunction);
@@ -503,7 +497,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return nullptr;
   }
   
-  // Variable declaration.
+  // --- Variable Declaration (VAR_DECL) ---
   if (strcmp(node->type, "VAR_DECL") == 0) {
     std::string varName = node->value;
     if (NamedValues.find(varName) != NamedValues.end()) {
@@ -522,7 +516,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
-  // "TYPE" operator.
+  // --- TYPE operator ---
   if (strcmp(node->type, "TYPE") == 0) {
     Type *targetType = nullptr;
     if (strcmp(node->left->type, "IDENTIFIER") == 0) {
@@ -557,7 +551,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return typeStr;
   }
   
-  // Declarations for specific types.
+  // --- Specific Declarations ---
   if (strcmp(node->type, "DECL_INT") == 0) {
     std::string varName = node->value;
     if (NamedValues.find(varName) != NamedValues.end()) {
@@ -612,6 +606,116 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     NamedValues[varName] = varPtr;
     Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(Context), 0)), varPtr);
     return varPtr;
+  }
+  
+  // --- Conditional Constructs ---
+  // Plain IF statement.
+  if (strcmp(node->type, "IF") == 0) {
+    Value *condVal = generateIR(node->left, currentFunction);
+    if (!condVal) {
+      std::cerr << "Error: Invalid condition in if statement\n";
+      return nullptr;
+    }
+    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifcond");
+    BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "ifcont", currentFunction);
+    Builder.CreateCondBr(condVal, thenBB, mergeBB);
+    Builder.SetInsertPoint(thenBB);
+    generateIR(node->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // IF-ELSE statement.
+  if (strcmp(node->type, "IF_ELSE") == 0) {
+    Value *condVal = generateIR(node->left, currentFunction);
+    if (!condVal) {
+      std::cerr << "Error: Invalid condition in if-else statement\n";
+      return nullptr;
+    }
+    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifelsecond");
+    BasicBlock *thenBB = BasicBlock::Create(Context, "then", currentFunction);
+    BasicBlock *elseBB = BasicBlock::Create(Context, "else", currentFunction);
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "ifelsecont", currentFunction);
+    Builder.CreateCondBr(condVal, thenBB, elseBB);
+    Builder.SetInsertPoint(thenBB);
+    // Here, node->right->left represents the "then" branch.
+    generateIR(node->right->left, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(elseBB);
+    // And node->right->right represents the "else" branch.
+    generateIR(node->right->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // Additional conditional constructs (from first file):
+  // IF_CHAIN: if with one or more else-if / else parts.
+  if (strcmp(node->type, "IF_CHAIN") == 0) {
+    // Assume node->left is an "IF" node and node->right is the chain.
+    Value *condVal = generateIR(node->left->left, currentFunction);
+    if (!condVal) {
+      std::cerr << "Error: Invalid condition in if-chain\n";
+      return nullptr;
+    }
+    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "ifchaincond");
+    BasicBlock *thenBB = BasicBlock::Create(Context, "if.chain.then", currentFunction);
+    BasicBlock *elseBB = BasicBlock::Create(Context, "if.chain.else", currentFunction);
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "if.chain.merge", currentFunction);
+    Builder.CreateCondBr(condVal, thenBB, elseBB);
+    Builder.SetInsertPoint(thenBB);
+    generateIR(node->left->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(elseBB);
+    generateIR(node->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // ELSE_IF node.
+  if (strcmp(node->type, "ELSE_IF") == 0) {
+    Value *condVal = generateIR(node->left, currentFunction);
+    if (!condVal) {
+      std::cerr << "Error: Invalid condition in else-if statement\n";
+      return nullptr;
+    }
+    if (condVal->getType()->isIntegerTy() && condVal->getType()->getIntegerBitWidth() != 1)
+      condVal = Builder.CreateICmpNE(condVal, ConstantInt::get(condVal->getType(), 0), "elseifcond");
+    BasicBlock *thenBB = BasicBlock::Create(Context, "elseif.then", currentFunction);
+    BasicBlock *elseBB = BasicBlock::Create(Context, "elseif.else", currentFunction);
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "elseif.merge", currentFunction);
+    Builder.CreateCondBr(condVal, thenBB, elseBB);
+    Builder.SetInsertPoint(thenBB);
+    // In this design, node->right->left is the "then" branch.
+    generateIR(node->right->left, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(elseBB);
+    if (node->right->right)
+      generateIR(node->right->right, currentFunction);
+    Builder.CreateBr(mergeBB);
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // ELSE block.
+  if (strcmp(node->type, "ELSE") == 0) {
+    generateIR(node->left, currentFunction);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // IF_ELSE_BODY node.
+  if (strcmp(node->type, "IF_ELSE_BODY") == 0) {
+    if (node->left)
+      generateIR(node->left, currentFunction);
+    if (node->right)
+      generateIR(node->right, currentFunction);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
   return nullptr;

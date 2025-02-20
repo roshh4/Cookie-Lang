@@ -19,7 +19,7 @@ ASTNode *root;  // Global AST root.
 }
 
 /* Token declarations */
-%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE ELSE
+%token VAR TYPE INT FLOAT BOOL CHAR STRING PRINT LOOP IF WHILE UNTIL ASSIGN SEMICOLON LPAREN RPAREN LBRACE RBRACE ELSE INPUT
 %token LT GT
 %token LE GE
 %token EQ
@@ -44,15 +44,16 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* if statement with optional else-if ladder and final else clause */
+/* Merged statement rules */
 statement:
-    IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
+    /* Input statement */
+    INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
+          { $$ = createASTNode("INPUT", $3, NULL, NULL); }
+    | IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
           {
             if ($8 == NULL) {
-              /* No else part; plain if */
               $$ = createASTNode("IF", NULL, $3, $6);
             } else {
-              /* Wrap the if with its else/else-if chain */
               $$ = createASTNode("IF_CHAIN", NULL,
                         createASTNode("IF", NULL, $3, $6), $8);
             }
@@ -93,13 +94,12 @@ statement:
           { $$ = createASTNode("DECL_STRING", $2, NULL, NULL); }
     ;
 
-/* Optional else-if ladder or final else */
+/* Else-if ladder or else */
 else_if_ladder_opt:
       /* empty */ { $$ = NULL; }
     | ELSE if_ladder { $$ = $2; }
     ;
 
-/* The if ladder: distinguishes between "else if" and plain "else" */
 if_ladder:
     /* else if */
     IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt

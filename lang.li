@@ -1,18 +1,19 @@
-var x = 35;
+int a;
+input(a);
+print(a);
 
-if ( x < 10 ) {
-    print("x is less than 10");
-} 
-else if ( x < 20 ) {
-    print("x is less than 20 but greater or equal to 10");
-} 
-else if ( x < 30 ) {
-    print("x is less than 30 but greater or equal to 20");
-} 
-else if (x less than 40)
-{
-    print("HIIIII");
-}
-else {
-    print("x is 30 or more");
-}
+float b;
+input(b);
+print(b);
+
+bool c;
+input(c);
+print(c);
+
+char d;
+input(d);
+print(d);
+
+str e;
+input(e);
+print(e);

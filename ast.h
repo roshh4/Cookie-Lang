@@ -6,9 +6,9 @@ extern "C" {
 #endif
 
 typedef struct ASTNode {
-    char* type;              // Node type (e.g. "NUMBER", "ASSIGN", "IF", "IF_CHAIN", etc.)
+    char* type;              // Node type (e.g. "NUMBER", "ASSIGN_INT", "IF", "INPUT", etc.)
     char* value;             // Extra string value (identifier name or literal)
-    struct ASTNode* left;    // Left child (for binary operators, condition, etc.)
+    struct ASTNode* left;    // Left child (for binary operators, conditions, etc.)
     struct ASTNode* right;   // Right child (for binary operators, then/else branches, etc.)
 } ASTNode;
 

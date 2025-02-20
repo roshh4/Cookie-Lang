@@ -10,6 +10,7 @@
 %%
 "//".*                                   { /* Ignore single-line comment starting with '//' */ }
 "comment:"[^\n]*                         { /* Ignore comment starting with 'comment:' */ }
+"input"                                  { return INPUT; }
 "less"[ \t\n]+"than"[ \t\n]+"equals"      { return LE; }
 "greater"[ \t\n]+"than"[ \t\n]+"equals"   { return GE; }
 "less"[ \t\n]+"than"                       { return LT; }
