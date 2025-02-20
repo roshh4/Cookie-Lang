@@ -11,9 +11,9 @@
 "//".*                                   { /* Ignore single-line comment starting with '//' */ }
 "comment:"[^\n]*                         { /* Ignore comment starting with 'comment:' */ }
 "input"                                  { return INPUT; }
-"less"[ \t\n]+"than"[ \t\n]+"equals"      { return LE; }
+"lesser"[ \t\n]+"than"[ \t\n]+"equals"      { return LE; }
 "greater"[ \t\n]+"than"[ \t\n]+"equals"   { return GE; }
-"less"[ \t\n]+"than"                      { return LT; }
+"lesser"[ \t\n]+"than"                      { return LT; }
 "greater"[ \t\n]+"than"                   { return GT; }
 "equals"                                 { return EQ; }
 "=="                                     { return EQ; }
@@ -40,7 +40,9 @@
 "loop"                                   { return LOOP; }
 "if"                                     { return IF; }
 "else"                                   { return ELSE; }
-"is"                                     { return IS; }
+"fun"                                    { return FUN; }
+"return"                                 { return RETURN; }
+","                                      { return COMMA; }
 "<"                                      { return LT; }
 ">"                                      { return GT; }
 "="                                      { return ASSIGN; }

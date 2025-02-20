@@ -83,7 +83,6 @@ char read_char() {
         fprintf(stderr, "Error reading input.\n");
         return '\0';
     }
-    // Use a pointer to skip leading whitespace.
     char *ptr = buffer;
     while (isspace((unsigned char)*ptr)) ptr++;
     size_t len = strlen(ptr);
