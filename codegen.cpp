@@ -36,6 +36,9 @@ Module *TheModule = new Module("GoofyLang", Context);
 IRBuilder<> Builder(Context);
 std::map<std::string, Value*> NamedValues;
 
+// This stack keeps track of the merge block for the currently active switch statement.
+static std::vector<BasicBlock*> SwitchMergeStack;
+
 // Utility: Create an alloca in the entry block.
 static AllocaInst* CreateEntryBlockAlloca(Function* TheFunction, const std::string &VarName, Type *type) {
   IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
@@ -207,8 +210,55 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
   
   // --- Handle DEFAULT node ---
   if (strcmp(node->type, "DEFAULT") == 0) {
-    // Generate the IR for the default clause's statements.
     return generateIR(node->left, currentFunction);
+  }
+  
+  // --- BREAK Statement ---
+  if (strcmp(node->type, "BREAK") == 0) {
+    if (SwitchMergeStack.empty())
+      report_fatal_error("Break statement not within switch-case");
+    BasicBlock *mergeBB = SwitchMergeStack.back();
+    Builder.CreateBr(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // --- For-Loop (range-based) ---
+  if (strcmp(node->type, "FOR_LOOP") == 0) {
+    // The left child is a RANGE node containing start and end expressions.
+    ASTNode *rangeNode = node->left;
+    Value *startVal = generateIR(rangeNode->left, currentFunction);
+    Value *endVal = generateIR(rangeNode->right, currentFunction);
+    if (!startVal || !endVal)
+      report_fatal_error("Invalid range in for loop");
+    if (!startVal->getType()->isIntegerTy(32))
+      startVal = Builder.CreateIntCast(startVal, Type::getInt32Ty(Context), true, "start_cast");
+    if (!endVal->getType()->isIntegerTy(32))
+      endVal = Builder.CreateIntCast(endVal, Type::getInt32Ty(Context), true, "end_cast");
+      
+    // Allocate a loop variable.
+    AllocaInst *forVar = CreateEntryBlockAlloca(currentFunction, "for_iter", Type::getInt32Ty(Context));
+    Builder.CreateStore(startVal, forVar);
+    
+    // Create basic blocks for loop condition, body, and exit.
+    BasicBlock *condBB = BasicBlock::Create(Context, "for.cond", currentFunction);
+    BasicBlock *loopBB = BasicBlock::Create(Context, "for.body", currentFunction);
+    BasicBlock *afterBB = BasicBlock::Create(Context, "for.end", currentFunction);
+    
+    Builder.CreateBr(condBB);
+    Builder.SetInsertPoint(condBB);
+    Value *currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, "for_iter");
+    Value *cond = Builder.CreateICmpSLE(currVal, endVal, "forcond");
+    Builder.CreateCondBr(cond, loopBB, afterBB);
+    
+    Builder.SetInsertPoint(loopBB);
+    generateIR(node->right, currentFunction);  // Loop body is in the right child.
+    currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, "for_iter");
+    Value *nextVal = Builder.CreateAdd(currVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "forinc");
+    Builder.CreateStore(nextVal, forVar);
+    Builder.CreateBr(condBB);
+    
+    Builder.SetInsertPoint(afterBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
   // --- Identifier lookup ---
@@ -561,6 +611,9 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     BasicBlock *mergeBB = BasicBlock::Create(Context, "switch.merge", currentFunction);
     BasicBlock *defaultBB = BasicBlock::Create(Context, "switch.default", currentFunction);
     
+    // Push the merge block onto the switch merge stack.
+    SwitchMergeStack.push_back(mergeBB);
+    
     Builder.SetInsertPoint(curBB);
     SwitchInst *switchInst = Builder.CreateSwitch(switchVal, defaultBB, 0);
     
@@ -589,14 +642,19 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
          switchInst->addCase(caseConst, caseBB);
          Builder.SetInsertPoint(caseBB);
          generateIR(caseNode->right, currentFunction);
-         Builder.CreateBr(mergeBB);
+         if (!Builder.GetInsertBlock()->getTerminator())
+           Builder.CreateBr(mergeBB);
     }
     
     // Default block: generate default clause if provided.
     Builder.SetInsertPoint(defaultBB);
     if (defaultClause)
        generateIR(defaultClause, currentFunction);
-    Builder.CreateBr(mergeBB);
+    if (!Builder.GetInsertBlock()->getTerminator())
+       Builder.CreateBr(mergeBB);
+    
+    // Pop the merge block from the switch merge stack.
+    SwitchMergeStack.pop_back();
     
     // Set insertion point to mergeBB.
     Builder.SetInsertPoint(mergeBB);
