@@ -629,8 +629,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
          }
     };
     collectCases(caseList);
-    
-    // Create basic blocks for each case.
     for (ASTNode *caseNode : caseNodes) {
          Value *caseLiteral = generateIR(caseNode->left, currentFunction);
          ConstantInt *caseConst = dyn_cast<ConstantInt>(caseLiteral);
@@ -645,23 +643,15 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
          if (!Builder.GetInsertBlock()->getTerminator())
            Builder.CreateBr(mergeBB);
     }
-    
-    // Default block: generate default clause if provided.
     Builder.SetInsertPoint(defaultBB);
     if (defaultClause)
        generateIR(defaultClause, currentFunction);
     if (!Builder.GetInsertBlock()->getTerminator())
        Builder.CreateBr(mergeBB);
-    
-    // Pop the merge block from the switch merge stack.
     SwitchMergeStack.pop_back();
-    
-    // Set insertion point to mergeBB.
     Builder.SetInsertPoint(mergeBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
-  // --- STATEMENT_LIST ---
   if (strcmp(node->type, "STATEMENT_LIST") == 0) {
     if (node->left)
       generateIR(node->left, currentFunction);
@@ -669,62 +659,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return generateIR(node->right, currentFunction);
     return nullptr;
   }
-  
-  // --- VAR_DECL ---
-  if (strcmp(node->type, "VAR_DECL") == 0) {
-    std::string varName = node->value;
-    if (NamedValues.find(varName) != NamedValues.end()) {
-      std::cerr << "Variable " << varName << " already declared!" << std::endl;
-      return nullptr;
-    }
-    Value *exprVal = generateIR(node->left, currentFunction);
-    if (!exprVal) {
-      std::cerr << "Error evaluating expression for var " << varName << std::endl;
-      return nullptr;
-    }
-    Type *varType = exprVal->getType();
-    Value *varPtr = CreateEntryBlockAlloca(currentFunction, varName, varType);
-    NamedValues[varName] = varPtr;
-    Builder.CreateStore(exprVal, varPtr);
-    return exprVal;
-  }
-  
-  // --- TYPE operator ---
-  if (strcmp(node->type, "TYPE") == 0) {
-    Type *targetType = nullptr;
-    if (strcmp(node->left->type, "IDENTIFIER") == 0) {
-      Value *varPtr = NamedValues[node->left->value];
-      if (!varPtr) {
-        std::cerr << "Unknown variable in type(): " << node->left->value << std::endl;
-        return Builder.CreateGlobalStringPtr("unknown", "type_unknown");
-      }
-      if (AllocaInst *alloca = dyn_cast<AllocaInst>(varPtr))
-        targetType = alloca->getAllocatedType();
-      else
-        targetType = varPtr->getType()->getContainedType(0);
-    } else {
-      Value *temp = generateIR(node->left, currentFunction);
-      targetType = temp->getType();
-    }
-      
-    const char *typeName = "unknown";
-    if (targetType->isIntegerTy(32))
-      typeName = "int";
-    else if (targetType->isFloatTy())
-      typeName = "float";
-    else if (targetType->isIntegerTy(1))
-      typeName = "bool";
-    else if (targetType->isIntegerTy(8))
-      typeName = "char";
-    else if (targetType->isPointerTy() &&
-             targetType == PointerType::get(Type::getInt8Ty(Context), 0))
-      typeName = "string";
-      
-    Value *typeStr = Builder.CreateGlobalStringPtr(typeName, "typeStr");
-    return typeStr;
-  }
-  
-  // --- Specific Declarations ---
   if (strcmp(node->type, "DECL_INT") == 0) {
     std::string varName = node->value;
     if (NamedValues.find(varName) != NamedValues.end()) {
@@ -780,8 +714,97 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(Context), 0)), varPtr);
     return varPtr;
   }
+  /* --- New Array Declarations --- */
+  if (strcmp(node->type, "DECL_ARRAY") == 0) {
+    std::string varName = node->value;
+    if (NamedValues.find(varName) != NamedValues.end()) {
+      std::cerr << "Variable " << varName << " already declared!" << std::endl;
+      return nullptr;
+    }
+    // Declare array without initializer: store a null pointer.
+    Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt32Ty(Context), 0));
+    NamedValues[varName] = varPtr;
+    Builder.CreateStore(ConstantPointerNull::get(PointerType::get(Type::getInt32Ty(Context), 0)), varPtr);
+    return varPtr;
+  }
+  if (strcmp(node->type, "DECL_ARRAY_INIT") == 0) {
+    std::string varName = node->value;
+    if (NamedValues.find(varName) != NamedValues.end()) {
+      std::cerr << "Variable " << varName << " already declared!" << std::endl;
+      return nullptr;
+    }
+    // node->left is the ARRAY_LITERAL
+    ASTNode* arrLiteral = node->left;
+    // Traverse the EXPR_LIST chain to collect elements.
+    std::vector<Value*> elements;
+    std::function<void(ASTNode*)> collectExpr = [&](ASTNode* exprNode) {
+       if (!exprNode) return;
+       if (strcmp(exprNode->type, "EXPR_LIST") == 0) {
+           collectExpr(exprNode->left);
+           collectExpr(exprNode->right);
+       } else {
+           Value* elem = generateIR(exprNode, currentFunction);
+           elements.push_back(elem);
+       }
+    };
+    collectExpr(arrLiteral->left);
+    unsigned numElements = elements.size();
+    // Allocate an array (on the stack) with constant size.
+    ArrayType* arrayTy = ArrayType::get(Type::getInt32Ty(Context), numElements);
+    AllocaInst* arrayAlloc = Builder.CreateAlloca(arrayTy, nullptr, varName+"_arr");
+    // Get pointer to the first element.
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    Value* arrayPtr = Builder.CreateInBoundsGEP(arrayAlloc->getAllocatedType(), arrayAlloc, indices, varName+"_ptr");
+    // Initialize array elements.
+    for (unsigned i = 0; i < numElements; i++) {
+       std::vector<Value*> idxList;
+       idxList.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+       idxList.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
+       Value* elemPtr = Builder.CreateInBoundsGEP(arrayAlloc->getAllocatedType(), arrayAlloc, idxList, "elemPtr");
+       Builder.CreateStore(elements[i], elemPtr);
+    }
+    // Create a variable to hold the array pointer.
+    Value* varPtr = CreateEntryBlockAlloca(currentFunction, varName, PointerType::get(Type::getInt32Ty(Context), 0));
+    NamedValues[varName] = varPtr;
+    Builder.CreateStore(arrayPtr, varPtr);
+    return varPtr;
+  }
   
-  // --- Conditional Constructs ---
+  if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
+    std::string varName = node->value;
+    Value* arrayPtr = NamedValues[varName];
+    if (!arrayPtr) {
+      report_fatal_error(Twine("Error: Unknown array '") + varName + "'");
+    }
+    // Evaluate the index expression.
+    Value* indexVal = generateIR(node->left, currentFunction);
+    // Adjust index: subtract 1 because indexing starts at 1.
+    Value* adjIndex = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "adjindex");
+    // Load the array pointer.
+    Value* loadedPtr = Builder.CreateLoad(PointerType::get(Type::getInt32Ty(Context), 0), arrayPtr, varName);
+    // Get element pointer.
+    Value* elemPtr = Builder.CreateGEP(Type::getInt32Ty(Context), loadedPtr, adjIndex, "arrayelem");
+    return Builder.CreateLoad(Type::getInt32Ty(Context), elemPtr, "arrayload");
+  }
+  
+  if (strcmp(node->type, "ARRAY_ASSIGN") == 0) {
+    std::string varName = node->value;
+    Value* arrayPtr = NamedValues[varName];
+    if (!arrayPtr) {
+      report_fatal_error(Twine("Error: Unknown array '") + varName + "'");
+    }
+    // node->left is an ARRAY_ASSIGN_OP with left child: index, right child: value.
+    Value* indexVal = generateIR(node->left->left, currentFunction);
+    Value* assignedVal = generateIR(node->left->right, currentFunction);
+    Value* adjIndex = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "adjindex");
+    Value* loadedPtr = Builder.CreateLoad(PointerType::get(Type::getInt32Ty(Context), 0), arrayPtr, varName);
+    Value* elemPtr = Builder.CreateGEP(Type::getInt32Ty(Context), loadedPtr, adjIndex, "arrayelem");
+    Builder.CreateStore(assignedVal, elemPtr);
+    return assignedVal;
+  }
+  
   if (strcmp(node->type, "IF") == 0) {
     Value *condVal = generateIR(node->left, currentFunction);
     if (!condVal) {
@@ -799,7 +822,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.SetInsertPoint(mergeBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
   if (strcmp(node->type, "IF_ELSE") == 0) {
     Value *condVal = generateIR(node->left, currentFunction);
     if (!condVal) {
@@ -821,7 +843,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.SetInsertPoint(mergeBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
   if (strcmp(node->type, "IF_CHAIN") == 0) {
     Value *condVal = generateIR(node->left->left, currentFunction);
     if (!condVal) {
@@ -843,7 +864,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.SetInsertPoint(mergeBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
   if (strcmp(node->type, "ELSE_IF") == 0) {
     Value *condVal = generateIR(node->left, currentFunction);
     if (!condVal) {
@@ -871,7 +891,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     generateIR(node->left, currentFunction);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
   if (strcmp(node->type, "IF_ELSE_BODY") == 0) {
     if (node->left)
       generateIR(node->left, currentFunction);
@@ -879,8 +898,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       generateIR(node->right, currentFunction);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
-  // --- Function Definition ---
   if (strcmp(node->type, "FUNC_DEF") == 0) {
     std::string funcName = node->value;
     std::vector<Type*> paramTypes;
@@ -907,15 +924,13 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     NamedValues = oldNamedValues;
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
-  // --- Return Statement ---
+
   if (strcmp(node->type, "RETURN") == 0) {
     Value *retVal = generateIR(node->left, currentFunction);
     Builder.CreateRet(retVal);
     return retVal;
   }
-  
-  // --- Function Call ---
+
   if (strcmp(node->type, "CALL") == 0) {
     Function *callee = TheModule->getFunction(node->value);
     if (!callee) {
@@ -957,25 +972,19 @@ void extractArgs(ASTNode* argNode, std::vector<Value*>& args, Function* currentF
     }
 }
 
-// --- Main ---
-// First, generate IR for all function definitions,
-// then generate global statements in a dedicated main() function.
 int main() {
   if (yyparse() != 0) {
     return 1;
   }
-  
-  // Generate IR for function definitions.
+
   generateFunctions(root);
-  
-  // Create main() for global (non-function) statements.
+
   FunctionType *mainType = FunctionType::get(Type::getInt32Ty(Context), false);
   Function *mainFunc = Function::Create(mainType, Function::ExternalLinkage, "main", TheModule);
   BasicBlock *globalBB = BasicBlock::Create(Context, "global", mainFunc);
   Builder.SetInsertPoint(globalBB);
   generateGlobalStatements(root, mainFunc);
-  
-  // Ensure the current block has a terminator.
+
   BasicBlock *curBB = Builder.GetInsertBlock();
   if (!curBB->getTerminator())
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
