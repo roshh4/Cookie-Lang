@@ -1,3 +1,4 @@
-loop 5 : 7 {
-  print("hello");
+int i = 7;
+loop i : 10 {
+    print(i);
 }
