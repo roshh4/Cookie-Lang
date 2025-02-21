@@ -1,13 +1,22 @@
-fun sum ( int a , int b ){
-  int x = a + b ;
-  return(x);
-}
+
 fun sub ( int a , int b ){
     int y = a - b ;
     print(y);
 }
+fun math ( int a, int b, int c){
+    int y = a+b+c;
+    print(y);
+}
+fun toshini ( str x, str y, str z){
+    str w = x + y + z;
+    print(w);
+}
 int a = 10;
 int b = 20;
-int y = sum ( a , b );
-print(y);
+int c = 30;
+str x = "Toshini ";
+str y = "Loves ";
+str z = "Dorito";
 sub( a , b);
+math(a, b, c); 
+toshini( x, y, z);

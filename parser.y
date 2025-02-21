@@ -38,7 +38,6 @@ ASTNode *root;  // Global AST root.
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 
-
 /* Nonterminals */
 %type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
@@ -62,11 +61,13 @@ global_declaration:
     | statement { $$ = $1; }
     ;
 
+/* --- Function Definitions --- */
 function_definition:
     FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
           { $$ = createASTNode("FUNC_DEF", $2, $4, $7); }
     ;
 
+/* Allow an empty parameter list or a comma‐separated list of parameters */
 parameter_list_opt:
       /* empty */ { $$ = NULL; }
     | parameter_list { $$ = $1; }
@@ -89,6 +90,7 @@ function_body:
     statements { $$ = $1; }
     ;
 
+/* --- Argument Lists for Function Calls --- */
 argument_list_opt:
       /* empty */ { $$ = NULL; }
     | argument_list { $$ = $1; }

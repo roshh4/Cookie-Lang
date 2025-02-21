@@ -176,7 +176,6 @@ void generateGlobalStatements(ASTNode* node, Function* mainFunc) {
 }
 
 // --- Main IR Generation Function ---
-// (The full generateIR implementation remains as before.)
 Value *generateIR(ASTNode *node, Function* currentFunction) {
   if (!node) return nullptr;
   
