@@ -7,16 +7,29 @@ fun math ( int a, int b, int c){
     int y = a+b+c;
     print(y);
 }
-fun toshini ( str x, str y, str z){
-    str w = x + y + z;
+fun toshini ( str x, str y, str z, str m){
+    str w = x + y + z + m;
     print(w);
 }
 int a = 10;
 int b = 20;
 int c = 30;
+str m = " tost";
 str x = "Toshini ";
 str y = "Loves ";
 str z = "Dorito";
 sub( a , b);
 math(a, b, c); 
-toshini( x, y, z);
+toshini( x, y, z, m);
+
+input(day);
+switch(day){
+  case: 1
+    print("Monday");
+  case: 2
+    print("Tuesday");
+  case: 3
+    print("Wednesday");
+
+}
+

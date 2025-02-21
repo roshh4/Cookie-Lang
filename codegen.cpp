@@ -1,5 +1,6 @@
 #include <map>
 #include <vector>
+#include <functional>
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -537,6 +538,58 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
+  // --- SWITCH-CASE ---
+  if (strcmp(node->type, "SWITCH") == 0) {
+    // Evaluate switch condition.
+    Value *switchVal = generateIR(node->left, currentFunction);
+    if (!switchVal->getType()->isIntegerTy(32))
+      switchVal = Builder.CreateIntCast(switchVal, Type::getInt32Ty(Context), true, "switchcond");
+    
+    BasicBlock *curBB = Builder.GetInsertBlock();
+    BasicBlock *mergeBB = BasicBlock::Create(Context, "switch.merge", currentFunction);
+    BasicBlock *defaultBB = BasicBlock::Create(Context, "switch.default", currentFunction);
+    
+    // Create the switch instruction in the current block.
+    Builder.SetInsertPoint(curBB);
+    SwitchInst *switchInst = Builder.CreateSwitch(switchVal, defaultBB, 0);
+    
+    // Collect all case nodes from the CASE_LIST subtree.
+    std::vector<ASTNode*> caseNodes;
+    std::function<void(ASTNode*)> collectCases = [&](ASTNode *n) {
+         if (!n) return;
+         if (strcmp(n->type, "CASE") == 0)
+             caseNodes.push_back(n);
+         else if (strcmp(n->type, "CASE_LIST") == 0) {
+             collectCases(n->left);
+             collectCases(n->right);
+         }
+    };
+    collectCases(node->right);
+    
+    // Create basic blocks for each case.
+    for (ASTNode *caseNode : caseNodes) {
+         Value *caseLiteral = generateIR(caseNode->left, currentFunction);
+         ConstantInt *caseConst = dyn_cast<ConstantInt>(caseLiteral);
+         if (!caseConst) {
+             std::cerr << "Non constant case literal in switch\n";
+             continue;
+         }
+         BasicBlock *caseBB = BasicBlock::Create(Context, "case", currentFunction);
+         switchInst->addCase(caseConst, caseBB);
+         Builder.SetInsertPoint(caseBB);
+         generateIR(caseNode->right, currentFunction);
+         Builder.CreateBr(mergeBB);
+    }
+    
+    // Default block: if no case matches.
+    Builder.SetInsertPoint(defaultBB);
+    Builder.CreateBr(mergeBB);
+    
+    // Set insertion point to mergeBB.
+    Builder.SetInsertPoint(mergeBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
   // --- STATEMENT_LIST ---
   if (strcmp(node->type, "STATEMENT_LIST") == 0) {
     if (node->left)
@@ -850,7 +903,10 @@ int main() {
   BasicBlock *globalBB = BasicBlock::Create(Context, "global", mainFunc);
   Builder.SetInsertPoint(globalBB);
   generateGlobalStatements(root, mainFunc);
-  if (!globalBB->getTerminator())
+  
+  // Instead of checking only globalBB, check the current insertion block.
+  BasicBlock *curBB = Builder.GetInsertBlock();
+  if (!curBB->getTerminator())
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
   
   std::string error;

@@ -28,6 +28,7 @@ ASTNode *root;  // Global AST root.
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 %token FUN RETURN COMMA
+%token SWITCH CASE
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -41,6 +42,7 @@ ASTNode *root;  // Global AST root.
 /* Nonterminals */
 %type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
+%type <node> case_list case_clause
 
 /* Start symbol */
 %start program
@@ -67,7 +69,7 @@ function_definition:
           { $$ = createASTNode("FUNC_DEF", $2, $4, $7); }
     ;
 
-/* Allow an empty parameter list or a comma‐separated list of parameters */
+/* Parameter List */
 parameter_list_opt:
       /* empty */ { $$ = NULL; }
     | parameter_list { $$ = $1; }
@@ -90,7 +92,7 @@ function_body:
     statements { $$ = $1; }
     ;
 
-/* --- Argument Lists for Function Calls --- */
+/* --- Argument List --- */
 argument_list_opt:
       /* empty */ { $$ = NULL; }
     | argument_list { $$ = $1; }
@@ -101,11 +103,13 @@ argument_list:
     | argument_list COMMA expression { $$ = createASTNode("ARG_LIST", NULL, $1, $3); }
     ;
 
+/* --- Statements --- */
 statements:
       statement { $$ = $1; }
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
+/* Extended statement to include switch-case */
 statement:
     INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
@@ -169,6 +173,9 @@ statement:
     /* Function call as a statement */
     | IDENTIFIER LPAREN argument_list_opt RPAREN SEMICOLON
           { $$ = createASTNode("CALL", $1, $3, NULL); }
+    /* Switch-case statement */
+    | SWITCH LPAREN expression RPAREN LBRACE case_list RBRACE
+          { $$ = createASTNode("SWITCH", NULL, $3, $6); }
     ;
 
 else_if_ladder_opt:
@@ -185,6 +192,17 @@ if_ladder:
     |
     LBRACE statements RBRACE
           { $$ = createASTNode("ELSE", NULL, $2, NULL); }
+    ;
+
+/* Case list for switch-case */
+case_list:
+      case_clause { $$ = $1; }
+    | case_list case_clause { $$ = createASTNode("CASE_LIST", NULL, $1, $2); }
+    ;
+
+case_clause:
+      CASE expression statements
+             { $$ = createASTNode("CASE", NULL, $2, $3); }
     ;
 
 expression:
