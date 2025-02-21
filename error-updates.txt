@@ -1,0 +1,47 @@
+---------------------------
+variables
+1.type return
+---------------------------
+1.Type conversion
+
+---------------------------------------------
+Next update 
+1. for, for each etc
+3.array
+---------------------------------------------
+
+---------------------------------
+1. bool c;
+input(c);
+print(c);
+
+c prints false need to rectify 
+
+if no code present in lang.li , it shows 
+Error: syntax error
+lli: Symbols not found: [ _main ]
+
+
+var a = 2.2;
+int b = 3 + a;
+print(b);
+prints a garbage value
+
+-------------------------------------------
+text highlight:
+equals
+==
+not
+not equals
+!=
+!
+until
+is 
+< 
+> 
+= 
+; 
++ 
+- 
+* 
+/ 

@@ -28,6 +28,7 @@ ASTNode *root;  // Global AST root.
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 %token FUN RETURN COMMA
+%token SWITCH CASE DEFAULT BREAK
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -38,10 +39,10 @@ ASTNode *root;  // Global AST root.
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 
-
 /* Nonterminals */
 %type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
+%type <node> case_list case_clause default_clause
 
 /* Start symbol */
 %start program
@@ -62,11 +63,13 @@ global_declaration:
     | statement { $$ = $1; }
     ;
 
+/* --- Function Definitions --- */
 function_definition:
     FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
           { $$ = createASTNode("FUNC_DEF", $2, $4, $7); }
     ;
 
+/* Parameter List */
 parameter_list_opt:
       /* empty */ { $$ = NULL; }
     | parameter_list { $$ = $1; }
@@ -89,6 +92,7 @@ function_body:
     statements { $$ = $1; }
     ;
 
+/* --- Argument List --- */
 argument_list_opt:
       /* empty */ { $$ = NULL; }
     | argument_list { $$ = $1; }
@@ -99,11 +103,13 @@ argument_list:
     | argument_list COMMA expression { $$ = createASTNode("ARG_LIST", NULL, $1, $3); }
     ;
 
+/* --- Statements --- */
 statements:
       statement { $$ = $1; }
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
+/* Extended statement: Add for-loop, switch-case, break, etc. */
 statement:
     INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
@@ -116,6 +122,10 @@ statement:
                         createASTNode("IF", NULL, $3, $6), $8);
             }
           }
+    | LOOP expression ':' expression LBRACE statements RBRACE
+          { $$ = createASTNode("FOR_LOOP", NULL, createASTNode("RANGE", NULL, $2, $4), $6); }
+    | LOOP expression LBRACE statements RBRACE
+          { $$ = createASTNode("LOOP", NULL, $2, $4); }
     | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
@@ -150,8 +160,6 @@ statement:
           { $$ = createASTNode("REASSIGN", $1, $3, NULL); }
     | PRINT LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("PRINT", NULL, $3, NULL); }
-    | LOOP expression LBRACE statements RBRACE
-          { $$ = createASTNode("LOOP", NULL, $2, $4); }
     | INT IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_INT", $2, NULL, NULL); }
     | FLOAT IDENTIFIER SEMICOLON
@@ -167,6 +175,11 @@ statement:
     /* Function call as a statement */
     | IDENTIFIER LPAREN argument_list_opt RPAREN SEMICOLON
           { $$ = createASTNode("CALL", $1, $3, NULL); }
+    /* Switch-case statement with default clause */
+    | SWITCH LPAREN expression RPAREN LBRACE case_list default_clause RBRACE
+          { $$ = createASTNode("SWITCH", NULL, $3, createASTNode("SWITCH_BODY", NULL, $6, $7)); }
+    /* Break statement */
+    | BREAK SEMICOLON { $$ = createASTNode("BREAK", NULL, NULL, NULL); }
     ;
 
 else_if_ladder_opt:
@@ -176,13 +189,26 @@ else_if_ladder_opt:
 
 if_ladder:
     IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
-          {
-            $$ = createASTNode("ELSE_IF", NULL, $3,
-                      createASTNode("IF_ELSE_BODY", NULL, $6, $8));
-          }
-    |
-    LBRACE statements RBRACE
+          { $$ = createASTNode("ELSE_IF", NULL, $3, createASTNode("IF_ELSE_BODY", NULL, $6, $8)); }
+    | LBRACE statements RBRACE
           { $$ = createASTNode("ELSE", NULL, $2, NULL); }
+    ;
+
+/* Case list for switch-case */
+case_list:
+      case_clause { $$ = $1; }
+    | case_list case_clause { $$ = createASTNode("CASE_LIST", NULL, $1, $2); }
+    ;
+
+/* A case clause */
+case_clause:
+      CASE expression statements { $$ = createASTNode("CASE", NULL, $2, $3); }
+    ;
+
+/* Default clause for switch-case */
+default_clause:
+      /* empty */ { $$ = NULL; }
+    | DEFAULT ':' statements { $$ = createASTNode("DEFAULT", NULL, $3, NULL); }
     ;
 
 expression:
@@ -200,13 +226,13 @@ logical_and_expression:
     ;
 
 equality_expression:
-      equality_expression EQ relational_expression { $$ = createASTNode("EQ", "==", $1, $3); }
+    equality_expression EQ relational_expression { $$ = createASTNode("EQ", "==", $1, $3); }
     | equality_expression NE relational_expression { $$ = createASTNode("NE", "!=", $1, $3); }
     | relational_expression { $$ = $1; }
     ;
 
 relational_expression:
-      relational_expression LT additive_expression { $$ = createASTNode("LT", "<", $1, $3); }
+    relational_expression LT additive_expression { $$ = createASTNode("LT", "<", $1, $3); }
     | relational_expression GT additive_expression { $$ = createASTNode("GT", ">", $1, $3); }
     | relational_expression LE additive_expression { $$ = createASTNode("LE", "<=", $1, $3); }
     | relational_expression GE additive_expression { $$ = createASTNode("GE", ">=", $1, $3); }
@@ -214,19 +240,19 @@ relational_expression:
     ;
 
 additive_expression:
-      additive_expression PLUS multiplicative_expression { $$ = createASTNode("ADD", "+", $1, $3); }
+    additive_expression PLUS multiplicative_expression { $$ = createASTNode("ADD", "+", $1, $3); }
     | additive_expression MINUS multiplicative_expression { $$ = createASTNode("SUB", "-", $1, $3); }
     | multiplicative_expression { $$ = $1; }
     ;
 
 multiplicative_expression:
-      multiplicative_expression MULTIPLY primary { $$ = createASTNode("MUL", "*", $1, $3); }
+    multiplicative_expression MULTIPLY primary { $$ = createASTNode("MUL", "*", $1, $3); }
     | multiplicative_expression DIVIDE primary { $$ = createASTNode("DIV", "/", $1, $3); }
     | primary { $$ = $1; }
     ;
 
 primary:
-      NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
+    NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
     | MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
     | NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
     | FLOAT_NUMBER { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
