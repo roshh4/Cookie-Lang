@@ -44,6 +44,8 @@
 "return"                                 { return RETURN; }
 "switch"                                 { return SWITCH; }
 "case:"                                  { return CASE; }
+"default"                                { return DEFAULT; }
+":"                                      { return ':'; }
 ","                                      { return COMMA; }
 "<"                                      { return LT; }
 ">"                                      { return GT; }

@@ -205,6 +205,12 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateGlobalStringPtr(strLiteral, "strlit");
   }
   
+  // --- Handle DEFAULT node ---
+  if (strcmp(node->type, "DEFAULT") == 0) {
+    // Generate the IR for the default clause's statements.
+    return generateIR(node->left, currentFunction);
+  }
+  
   // --- Identifier lookup ---
   if (strcmp(node->type, "IDENTIFIER") == 0) {
     Value* varPtr = NamedValues[node->value];
@@ -545,15 +551,20 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (!switchVal->getType()->isIntegerTy(32))
       switchVal = Builder.CreateIntCast(switchVal, Type::getInt32Ty(Context), true, "switchcond");
     
+    // node->right is expected to be a SWITCH_BODY node.
+    // Its left child is the case list and its right child is the default clause.
+    ASTNode *switchBody = node->right;
+    ASTNode *caseList = switchBody ? switchBody->left : nullptr;
+    ASTNode *defaultClause = switchBody ? switchBody->right : nullptr;
+    
     BasicBlock *curBB = Builder.GetInsertBlock();
     BasicBlock *mergeBB = BasicBlock::Create(Context, "switch.merge", currentFunction);
     BasicBlock *defaultBB = BasicBlock::Create(Context, "switch.default", currentFunction);
     
-    // Create the switch instruction in the current block.
     Builder.SetInsertPoint(curBB);
     SwitchInst *switchInst = Builder.CreateSwitch(switchVal, defaultBB, 0);
     
-    // Collect all case nodes from the CASE_LIST subtree.
+    // Collect all case nodes from the caseList.
     std::vector<ASTNode*> caseNodes;
     std::function<void(ASTNode*)> collectCases = [&](ASTNode *n) {
          if (!n) return;
@@ -564,7 +575,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
              collectCases(n->right);
          }
     };
-    collectCases(node->right);
+    collectCases(caseList);
     
     // Create basic blocks for each case.
     for (ASTNode *caseNode : caseNodes) {
@@ -581,8 +592,10 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
          Builder.CreateBr(mergeBB);
     }
     
-    // Default block: if no case matches.
+    // Default block: generate default clause if provided.
     Builder.SetInsertPoint(defaultBB);
+    if (defaultClause)
+       generateIR(defaultClause, currentFunction);
     Builder.CreateBr(mergeBB);
     
     // Set insertion point to mergeBB.
@@ -904,7 +917,7 @@ int main() {
   Builder.SetInsertPoint(globalBB);
   generateGlobalStatements(root, mainFunc);
   
-  // Instead of checking only globalBB, check the current insertion block.
+  // Ensure the current block has a terminator.
   BasicBlock *curBB = Builder.GetInsertBlock();
   if (!curBB->getTerminator())
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));

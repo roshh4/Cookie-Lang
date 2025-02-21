@@ -28,7 +28,7 @@ ASTNode *root;  // Global AST root.
 %token PLUS MINUS MULTIPLY DIVIDE
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 %token FUN RETURN COMMA
-%token SWITCH CASE
+%token SWITCH CASE DEFAULT
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -42,7 +42,7 @@ ASTNode *root;  // Global AST root.
 /* Nonterminals */
 %type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
-%type <node> case_list case_clause
+%type <node> case_list case_clause default_clause
 
 /* Start symbol */
 %start program
@@ -173,9 +173,9 @@ statement:
     /* Function call as a statement */
     | IDENTIFIER LPAREN argument_list_opt RPAREN SEMICOLON
           { $$ = createASTNode("CALL", $1, $3, NULL); }
-    /* Switch-case statement */
-    | SWITCH LPAREN expression RPAREN LBRACE case_list RBRACE
-          { $$ = createASTNode("SWITCH", NULL, $3, $6); }
+    /* Switch-case statement with default clause */
+    | SWITCH LPAREN expression RPAREN LBRACE case_list default_clause RBRACE
+          { $$ = createASTNode("SWITCH", NULL, $3, createASTNode("SWITCH_BODY", NULL, $6, $7)); }
     ;
 
 else_if_ladder_opt:
@@ -200,9 +200,16 @@ case_list:
     | case_list case_clause { $$ = createASTNode("CASE_LIST", NULL, $1, $2); }
     ;
 
+/* A case clause */
 case_clause:
       CASE expression statements
              { $$ = createASTNode("CASE", NULL, $2, $3); }
+    ;
+
+/* Default clause for switch-case */
+default_clause:
+      /* empty */ { $$ = NULL; }
+    | DEFAULT ':' statements { $$ = createASTNode("DEFAULT", NULL, $3, NULL); }
     ;
 
 expression:
