@@ -156,26 +156,26 @@ Function* getReadStringFunction() {
 // --- Helper Passes for IR Generation ---
 // Generate IR for all function definitions.
 void generateFunctions(ASTNode* node) {
-    if (!node) return;
-    if (strcmp(node->type, "GLOBAL_LIST") == 0) {
-         generateFunctions(node->left);
-         generateFunctions(node->right);
-    } else if (strcmp(node->type, "FUNC_DEF") == 0) {
-         generateIR(node, nullptr);
-    }
+  if (!node) return;
+  if (strcmp(node->type, "GLOBAL_LIST") == 0) {
+    generateFunctions(node->left);
+    generateFunctions(node->right);
+  } else if (strcmp(node->type, "FUNC_DEF") == 0) {
+    generateIR(node, nullptr);
+  }
 }
 
 // Generate IR for all non-function (global) statements into main().
 void generateGlobalStatements(ASTNode* node, Function* mainFunc) {
-    if (!node) return;
-    if (strcmp(node->type, "GLOBAL_LIST") == 0) {
-         generateGlobalStatements(node->left, mainFunc);
-         generateGlobalStatements(node->right, mainFunc);
-    } else if (strcmp(node->type, "FUNC_DEF") == 0) {
-         return;
-    } else {
-         generateIR(node, mainFunc);
-    }
+  if (!node) return;
+  if (strcmp(node->type, "GLOBAL_LIST") == 0) {
+    generateGlobalStatements(node->left, mainFunc);
+    generateGlobalStatements(node->right, mainFunc);
+  } else if (strcmp(node->type, "FUNC_DEF") == 0) {
+    return;
+  } else {
+    generateIR(node, mainFunc);
+  }
 }
 
 // --- Main IR Generation Function ---
@@ -221,19 +221,46 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // --- For-Loop (range-based) ---
+  // --- FOR_LOOP --- (merged version)
   if (strcmp(node->type, "FOR_LOOP") == 0) {
+    Value *startVal, *endVal;
     ASTNode *rangeNode = node->left;
-    Value *startVal = generateIR(rangeNode->left, currentFunction);
-    Value *endVal = generateIR(rangeNode->right, currentFunction);
-    if (!startVal || !endVal)
-      report_fatal_error("Invalid range in for loop");
+    // If node->value is provided, then we are using an iterator.
+    if (node->value != NULL) {
+      // Try to get an existing iterator value from NamedValues.
+      Value *existing = NamedValues[node->value];
+      if (existing)
+        startVal = Builder.CreateLoad(Type::getInt32Ty(Context), existing, node->value);
+      else
+        startVal = ConstantInt::get(Type::getInt32Ty(Context), 1);
+      // In this form, assume the range node's right child gives the end value.
+      endVal = generateIR(rangeNode->right, currentFunction);
+    } else {
+      // Otherwise, a simple range-based loop with two expressions.
+      startVal = generateIR(rangeNode->left, currentFunction);
+      endVal = generateIR(rangeNode->right, currentFunction);
+    }
     if (!startVal->getType()->isIntegerTy(32))
       startVal = Builder.CreateIntCast(startVal, Type::getInt32Ty(Context), true, "start_cast");
     if (!endVal->getType()->isIntegerTy(32))
       endVal = Builder.CreateIntCast(endVal, Type::getInt32Ty(Context), true, "end_cast");
-      
-    AllocaInst *forVar = CreateEntryBlockAlloca(currentFunction, "for_iter", Type::getInt32Ty(Context));
+    
+    AllocaInst *forVar = nullptr;
+    if (node->value != NULL) {
+      Value *existing = NamedValues[node->value];
+      if (existing) {
+        forVar = dyn_cast<AllocaInst>(existing);
+        if (!forVar) {
+          forVar = CreateEntryBlockAlloca(currentFunction, node->value, Type::getInt32Ty(Context));
+          NamedValues[node->value] = forVar;
+        }
+      } else {
+        forVar = CreateEntryBlockAlloca(currentFunction, node->value, Type::getInt32Ty(Context));
+        NamedValues[node->value] = forVar;
+      }
+    } else {
+      forVar = CreateEntryBlockAlloca(currentFunction, "for_iter", Type::getInt32Ty(Context));
+    }
     Builder.CreateStore(startVal, forVar);
     
     BasicBlock *condBB = BasicBlock::Create(Context, "for.cond", currentFunction);
@@ -242,13 +269,13 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     Builder.CreateBr(condBB);
     Builder.SetInsertPoint(condBB);
-    Value *currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, "for_iter");
+    Value *currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, (node->value ? node->value : "for_iter"));
     Value *cond = Builder.CreateICmpSLE(currVal, endVal, "forcond");
     Builder.CreateCondBr(cond, loopBB, afterBB);
     
     Builder.SetInsertPoint(loopBB);
     generateIR(node->right, currentFunction);
-    currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, "for_iter");
+    currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, (node->value ? node->value : "for_iter"));
     Value *nextVal = Builder.CreateAdd(currVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "forinc");
     Builder.CreateStore(nextVal, forVar);
     Builder.CreateBr(condBB);
@@ -308,6 +335,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateFSub(L, R, "fsubtmp");
     return Builder.CreateSub(L, R, "subtmp");
   }
+  
   if (strcmp(node->type, "MUL") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -683,7 +711,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       report_fatal_error("Invalid array size expression");
     if (!sizeVal->getType()->isIntegerTy(32))
       sizeVal = Builder.CreateIntCast(sizeVal, Type::getInt32Ty(Context), true, "arraysize");
-    // Ensure the size is constant
+    // Ensure the size is constant.
     if (ConstantInt *CI = dyn_cast<ConstantInt>(sizeVal)) {
       unsigned arraySize = CI->getZExtValue();
       ArrayType *arrType = ArrayType::get(Type::getInt32Ty(Context), arraySize);
@@ -1015,36 +1043,35 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
 }
 
 void extractParams(ASTNode* paramNode, std::vector<Type*>& types, std::vector<std::string>& names) {
-    if (!paramNode) return;
-    if (strcmp(paramNode->type, "PARAM") == 0) {
-        std::string typeStr = (paramNode->left && paramNode->left->value) ? paramNode->left->value : "int";
-        if (typeStr == "int") types.push_back(Type::getInt32Ty(Context));
-        else if (typeStr == "float") types.push_back(Type::getFloatTy(Context));
-        else if (typeStr == "bool") types.push_back(Type::getInt1Ty(Context));
-        else if (typeStr == "char") types.push_back(Type::getInt8Ty(Context));
-        else if (typeStr == "string") types.push_back(PointerType::get(Type::getInt8Ty(Context), 0));
-        else types.push_back(Type::getInt32Ty(Context));
-        names.push_back(paramNode->value);
-    } else if (strcmp(paramNode->type, "PARAM_LIST") == 0) {
-        extractParams(paramNode->left, types, names);
-        extractParams(paramNode->right, types, names);
-    }
+  if (!paramNode) return;
+  if (strcmp(paramNode->type, "PARAM") == 0) {
+    std::string typeStr = (paramNode->left && paramNode->left->value) ? paramNode->left->value : "int";
+    if (typeStr == "int") types.push_back(Type::getInt32Ty(Context));
+    else if (typeStr == "float") types.push_back(Type::getFloatTy(Context));
+    else if (typeStr == "bool") types.push_back(Type::getInt1Ty(Context));
+    else if (typeStr == "char") types.push_back(Type::getInt8Ty(Context));
+    else if (typeStr == "string") types.push_back(PointerType::get(Type::getInt8Ty(Context), 0));
+    else types.push_back(Type::getInt32Ty(Context));
+    names.push_back(paramNode->value);
+  } else if (strcmp(paramNode->type, "PARAM_LIST") == 0) {
+    extractParams(paramNode->left, types, names);
+    extractParams(paramNode->right, types, names);
+  }
 }
 
 void extractArgs(ASTNode* argNode, std::vector<Value*>& args, Function* currentFunction) {
-    if (!argNode) return;
-    if (strcmp(argNode->type, "ARG_LIST") == 0) {
-       extractArgs(argNode->left, args, currentFunction);
-       extractArgs(argNode->right, args, currentFunction);
-    } else {
-       Value *argVal = generateIR(argNode, currentFunction);
-       args.push_back(argVal);
-    }
+  if (!argNode) return;
+  if (strcmp(argNode->type, "ARG_LIST") == 0) {
+    extractArgs(argNode->left, args, currentFunction);
+    extractArgs(argNode->right, args, currentFunction);
+  } else {
+    Value *argVal = generateIR(argNode, currentFunction);
+    args.push_back(argVal);
+  }
 }
 
 // --- Main ---
-// First, generate IR for all function definitions,
-// then generate global statements in a dedicated main() function.
+// Generate IR for function definitions then generate global statements in main().
 int main() {
   if (yyparse() != 0) {
     return 1;

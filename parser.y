@@ -41,7 +41,7 @@ ASTNode *root;  // Global AST root.
 %left MULTIPLY DIVIDE
 
 /* Nonterminals */
-%type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
+%type <node> program global_declarations global_declaration statements statement loop_header expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
 %type <node> case_list case_clause default_clause
 %type <node> element_list
@@ -65,7 +65,7 @@ global_declaration:
     | statement { $$ = $1; }
     ;
 
- 
+
 /* --- Function Definitions --- */
 function_definition:
     FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
@@ -91,13 +91,6 @@ parameter:
     | STRING IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "string", NULL, NULL), NULL); }
     ;
 
-/* Array element list */
-element_list:
-      expression { $$ = $1; }
-    | element_list COMMA expression { $$ = createASTNode("ARRAY_ELEM_LIST", NULL, $1, $3); }
-    ;
-
-/* Function body */
 function_body:
     statements { $$ = $1; }
     ;
@@ -113,29 +106,44 @@ argument_list:
     | argument_list COMMA expression { $$ = createASTNode("ARG_LIST", NULL, $1, $3); }
     ;
 
+/* --- Loop Header --- 
+     This nonterminal distinguishes among three loop forms:
+       - Iterator-based: "loop i : exp { ... }"
+       - Range-based for-loop: "loop exp : exp { ... }"
+       - Simple loop: "loop exp { ... }"
+*/
+loop_header:
+      IDENTIFIER ':' expression { $$ = createASTNode("FOR_LOOP", $1, createASTNode("RANGE", NULL, NULL, $3), NULL); }
+    | expression ':' expression { $$ = createASTNode("FOR_LOOP", NULL, createASTNode("RANGE", NULL, $1, $3), NULL); }
+    | expression { $$ = createASTNode("LOOP", NULL, $1, NULL); }
+    ;
+
+/* --- Element List for Arrays --- */
+element_list:
+      expression { $$ = $1; }
+    | element_list COMMA expression { $$ = createASTNode("ARRAY_ELEM_LIST", NULL, $1, $3); }
+    ;
+
 /* --- Statements --- */
 statements:
       statement { $$ = $1; }
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* Extended statement: Add for-loop, switch-case, break, etc. */
+/* Extended statement (includes loop, arrays, switch-case, etc.) */
 statement:
     INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
     | IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
           {
-            if ($8 == NULL) {
+            if ($8 == NULL)
               $$ = createASTNode("IF", NULL, $3, $6);
-            } else {
-              $$ = createASTNode("IF_CHAIN", NULL,
-                        createASTNode("IF", NULL, $3, $6), $8);
-            }
+            else
+              $$ = createASTNode("IF_CHAIN", NULL, createASTNode("IF", NULL, $3, $6), $8);
           }
-    | LOOP expression ':' expression LBRACE statements RBRACE
-          { $$ = createASTNode("FOR_LOOP", NULL, createASTNode("RANGE", NULL, $2, $4), $6); }
-    | LOOP expression LBRACE statements RBRACE
-          { $$ = createASTNode("LOOP", NULL, $2, $4); }
+    /* Loop using the new loop_header (iterator/range-based) */
+    | LOOP loop_header LBRACE statements RBRACE
+          { $2->right = $4; $$ = $2; }
     | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
