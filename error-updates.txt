@@ -47,3 +47,23 @@ is
 - 
 * 
 / 
+
+------------------------------
+
+int x = 6;
+if (x > 7){
+  print("g");
+} 
+else if (x not equals 6) {
+  print("h");
+  break;
+} 
+else {
+  print("i");
+}
+
+output
+LLVM ERROR: Break statement not within switch-case
+[1]    44199 done       cat lang.li | 
+       44200 abort      ./compiler > output.ll
+lli: Symbols not found: [ _main ]
