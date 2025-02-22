@@ -46,6 +46,7 @@
 "case:"                                  { return CASE; }
 "default"                                { return DEFAULT; }
 "break"                                  { return BREAK; }
+"inline"                                 { return INLINE; }
 ":"                                      { return ':'; }
 ","                                      { return COMMA; }
 "<"                                      { return LT; }

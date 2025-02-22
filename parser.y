@@ -117,6 +117,12 @@ loop_header:
     | expression { $$ = createASTNode("LOOP", NULL, $1, NULL); }
     ;
 
+/* --- New Production: Iterator Loop for Arrays and Strings --- */
+iterator_loop:
+    LOOP IDENTIFIER ':' IDENTIFIER LBRACE statements RBRACE
+          { $$ = createASTNode("ITERATOR", $2, createASTNode("IDENTIFIER", $4, NULL, NULL), $6); }
+    ;
+
 /* --- Element List for Arrays --- */
 element_list:
       expression { $$ = $1; }
@@ -140,9 +146,8 @@ statement:
             else
               $$ = createASTNode("IF_CHAIN", NULL, createASTNode("IF", NULL, $3, $6), $8);
           }
-    /* New alternative for array iterator loop */
-    | LOOP IDENTIFIER ':' IDENTIFIER LBRACE statements RBRACE
-          { $$ = createASTNode("ARRAY_ITERATOR", $2, createASTNode("IDENTIFIER", $4, NULL, NULL), $6); }
+    /* Include the new iterator loop alternative */
+    | iterator_loop { $$ = $1; }
     /* Loop using the new loop_header (iterator/range-based) */
     | LOOP loop_header LBRACE statements RBRACE
           { $2->right = $4; $$ = $2; }

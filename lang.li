@@ -18,20 +18,13 @@ int nums[3];
 nums[1] = 1;
 nums[2] = 2;
 nums[3] = 3;
-int i = 1;
-loop i:3{
-    print(nums[i]);
-}
-
-loop i : 5 {
-    print(i);
-}
-
 
 loop i : arr{
     print(i);
 }
 
-loop i : nums{
-    print(i);
+print("HII");
+int j = 3;
+loop j : 5{
+    print(j);
 }
