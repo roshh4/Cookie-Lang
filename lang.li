@@ -3,3 +3,12 @@ int i = 5;
 loop i : arr{
     print(i);
 }
+
+
+loop i : arr{
+    print(i);
+}
+
+loop i : nums{
+    print(i);
+}
