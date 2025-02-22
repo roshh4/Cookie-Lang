@@ -172,7 +172,6 @@ void generateGlobalStatements(ASTNode* node, Function* mainFunc) {
          generateGlobalStatements(node->left, mainFunc);
          generateGlobalStatements(node->right, mainFunc);
     } else if (strcmp(node->type, "FUNC_DEF") == 0) {
-         // Skip function definitions here.
          return;
     } else {
          generateIR(node, mainFunc);
@@ -222,37 +221,57 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // --- For-Loop (range-based) ---
+  // --- For-Loop (range-based or iterator-based) ---
   if (strcmp(node->type, "FOR_LOOP") == 0) {
-    // The left child is a RANGE node containing start and end expressions.
+    Value *startVal, *endVal;
     ASTNode *rangeNode = node->left;
-    Value *startVal = generateIR(rangeNode->left, currentFunction);
-    Value *endVal = generateIR(rangeNode->right, currentFunction);
-    if (!startVal || !endVal)
-      report_fatal_error("Invalid range in for loop");
+    if (node->value != NULL) {
+         Value *existing = NamedValues[node->value];
+         if (existing)
+              startVal = Builder.CreateLoad(Type::getInt32Ty(Context), existing, node->value);
+         else
+              startVal = ConstantInt::get(Type::getInt32Ty(Context), 1);
+         endVal = generateIR(rangeNode->right, currentFunction);
+    } else {
+         startVal = generateIR(rangeNode->left, currentFunction);
+         endVal = generateIR(rangeNode->right, currentFunction);
+    }
     if (!startVal->getType()->isIntegerTy(32))
       startVal = Builder.CreateIntCast(startVal, Type::getInt32Ty(Context), true, "start_cast");
     if (!endVal->getType()->isIntegerTy(32))
       endVal = Builder.CreateIntCast(endVal, Type::getInt32Ty(Context), true, "end_cast");
       
-    // Allocate a loop variable.
-    AllocaInst *forVar = CreateEntryBlockAlloca(currentFunction, "for_iter", Type::getInt32Ty(Context));
+    AllocaInst *forVar = nullptr;
+    if (node->value != NULL) {
+         Value *existing = NamedValues[node->value];
+         if (existing) {
+              forVar = dyn_cast<AllocaInst>(existing);
+              if (!forVar) {
+                 forVar = CreateEntryBlockAlloca(currentFunction, node->value, Type::getInt32Ty(Context));
+                 NamedValues[node->value] = forVar;
+              }
+         } else {
+              forVar = CreateEntryBlockAlloca(currentFunction, node->value, Type::getInt32Ty(Context));
+              NamedValues[node->value] = forVar;
+         }
+    } else {
+         forVar = CreateEntryBlockAlloca(currentFunction, "for_iter", Type::getInt32Ty(Context));
+    }
     Builder.CreateStore(startVal, forVar);
     
-    // Create basic blocks for loop condition, body, and exit.
     BasicBlock *condBB = BasicBlock::Create(Context, "for.cond", currentFunction);
     BasicBlock *loopBB = BasicBlock::Create(Context, "for.body", currentFunction);
     BasicBlock *afterBB = BasicBlock::Create(Context, "for.end", currentFunction);
     
     Builder.CreateBr(condBB);
     Builder.SetInsertPoint(condBB);
-    Value *currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, "for_iter");
+    Value *currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, node->value ? node->value : "for_iter");
     Value *cond = Builder.CreateICmpSLE(currVal, endVal, "forcond");
     Builder.CreateCondBr(cond, loopBB, afterBB);
     
     Builder.SetInsertPoint(loopBB);
-    generateIR(node->right, currentFunction);  // Loop body is in the right child.
-    currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, "for_iter");
+    generateIR(node->right, currentFunction);
+    currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, node->value ? node->value : "for_iter");
     Value *nextVal = Builder.CreateAdd(currVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "forinc");
     Builder.CreateStore(nextVal, forVar);
     Builder.CreateBr(condBB);
@@ -596,13 +615,10 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
   
   // --- SWITCH-CASE ---
   if (strcmp(node->type, "SWITCH") == 0) {
-    // Evaluate switch condition.
     Value *switchVal = generateIR(node->left, currentFunction);
     if (!switchVal->getType()->isIntegerTy(32))
       switchVal = Builder.CreateIntCast(switchVal, Type::getInt32Ty(Context), true, "switchcond");
     
-    // node->right is expected to be a SWITCH_BODY node.
-    // Its left child is the case list and its right child is the default clause.
     ASTNode *switchBody = node->right;
     ASTNode *caseList = switchBody ? switchBody->left : nullptr;
     ASTNode *defaultClause = switchBody ? switchBody->right : nullptr;
@@ -611,13 +627,11 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     BasicBlock *mergeBB = BasicBlock::Create(Context, "switch.merge", currentFunction);
     BasicBlock *defaultBB = BasicBlock::Create(Context, "switch.default", currentFunction);
     
-    // Push the merge block onto the switch merge stack.
     SwitchMergeStack.push_back(mergeBB);
     
     Builder.SetInsertPoint(curBB);
     SwitchInst *switchInst = Builder.CreateSwitch(switchVal, defaultBB, 0);
     
-    // Collect all case nodes from the caseList.
     std::vector<ASTNode*> caseNodes;
     std::function<void(ASTNode*)> collectCases = [&](ASTNode *n) {
          if (!n) return;
@@ -630,7 +644,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     };
     collectCases(caseList);
     
-    // Create basic blocks for each case.
     for (ASTNode *caseNode : caseNodes) {
          Value *caseLiteral = generateIR(caseNode->left, currentFunction);
          ConstantInt *caseConst = dyn_cast<ConstantInt>(caseLiteral);
@@ -646,17 +659,14 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
            Builder.CreateBr(mergeBB);
     }
     
-    // Default block: generate default clause if provided.
     Builder.SetInsertPoint(defaultBB);
     if (defaultClause)
        generateIR(defaultClause, currentFunction);
     if (!Builder.GetInsertBlock()->getTerminator())
        Builder.CreateBr(mergeBB);
     
-    // Pop the merge block from the switch merge stack.
     SwitchMergeStack.pop_back();
     
-    // Set insertion point to mergeBB.
     Builder.SetInsertPoint(mergeBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
@@ -958,24 +968,20 @@ void extractArgs(ASTNode* argNode, std::vector<Value*>& args, Function* currentF
 }
 
 // --- Main ---
-// First, generate IR for all function definitions,
-// then generate global statements in a dedicated main() function.
+// Generate IR for function definitions then global statements in main().
 int main() {
   if (yyparse() != 0) {
     return 1;
   }
   
-  // Generate IR for function definitions.
   generateFunctions(root);
   
-  // Create main() for global (non-function) statements.
   FunctionType *mainType = FunctionType::get(Type::getInt32Ty(Context), false);
   Function *mainFunc = Function::Create(mainType, Function::ExternalLinkage, "main", TheModule);
   BasicBlock *globalBB = BasicBlock::Create(Context, "global", mainFunc);
   Builder.SetInsertPoint(globalBB);
   generateGlobalStatements(root, mainFunc);
   
-  // Ensure the current block has a terminator.
   BasicBlock *curBB = Builder.GetInsertBlock();
   if (!curBB->getTerminator())
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));

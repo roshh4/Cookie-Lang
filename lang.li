@@ -1,4 +1,11 @@
-
-loop 3 : 5 {
-  print("h");
+loop i : 5 {
+    print(i);
 }
+
+print("hello");
+
+int t = 3;
+loop t : 5 {
+    print(t);
+}
+
