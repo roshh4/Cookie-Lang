@@ -56,9 +56,10 @@
 ")"                                      { return RPAREN; }
 "{"                                      { return LBRACE; }
 "}"                                      { return RBRACE; }
-"["                                      { return '['; }
-"]"                                      { return ']'; }
-
+"+"                                      { return PLUS; }
+"-"                                      { return MINUS; }
+"*"                                      { return MULTIPLY; }
+"/"                                      { return DIVIDE; }
 [0-9]+\.[0-9]+                          { yylval.str = strdup(yytext); return FLOAT_NUMBER; }
 [0-9]+                                   { yylval.str = strdup(yytext); return NUMBER; }
 "'"[^\']"'"                              { yylval.str = strdup(yytext); return CHAR_LITERAL; }

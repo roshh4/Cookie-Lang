@@ -29,8 +29,6 @@ ASTNode *root;  // Global AST root.
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 %token FUN RETURN COMMA
 %token SWITCH CASE DEFAULT BREAK
-/* New tokens for array support */
-%token '[' ']'
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -45,8 +43,6 @@ ASTNode *root;  // Global AST root.
 %type <node> program global_declarations global_declaration statements statement expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
 %type <node> case_list case_clause default_clause
-/* New nonterminals for arrays */
-%type <node> array_declaration array_literal expression_list
 
 /* Start symbol */
 %start program
@@ -67,13 +63,10 @@ global_declaration:
     | statement { $$ = $1; }
     ;
 
+/* --- Function Definitions --- */
 function_definition:
     FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
           { $$ = createASTNode("FUNC_DEF", $2, $4, $7); }
-    ;
-
-function_body:
-    statements { $$ = $1; }
     ;
 
 /* Parameter List */
@@ -95,7 +88,11 @@ parameter:
     | STRING IDENTIFIER { $$ = createASTNode("PARAM", $2, createASTNode("TYPE_LITERAL", "string", NULL, NULL), NULL); }
     ;
 
-/* Argument List */
+function_body:
+    statements { $$ = $1; }
+    ;
+
+/* --- Argument List --- */
 argument_list_opt:
       /* empty */ { $$ = NULL; }
     | argument_list { $$ = $1; }
@@ -104,26 +101,6 @@ argument_list_opt:
 argument_list:
       expression { $$ = $1; }
     | argument_list COMMA expression { $$ = createASTNode("ARG_LIST", NULL, $1, $3); }
-    ;
-
-/* --- Array Declaration --- */
-array_declaration:
-      INT IDENTIFIER '[' ']' SEMICOLON
-          { $$ = createASTNode("DECL_ARRAY", $2, NULL, NULL); }
-    | INT IDENTIFIER '[' ']' ASSIGN array_literal SEMICOLON
-          { $$ = createASTNode("DECL_ARRAY_INIT", $2, $6, NULL); }
-    ;
-
-/* --- Array Literal --- */
-array_literal:
-    LBRACE expression_list RBRACE { $$ = createASTNode("ARRAY_LITERAL", NULL, $2, NULL); }
-    ;
-
-
-/* Expression List for Array Literals */
-expression_list:
-    expression { $$ = createASTNode("EXPR_LIST", NULL, $1, NULL); }
-    | expression_list COMMA expression { $$ = createASTNode("EXPR_LIST", NULL, $1, $3); }
     ;
 
 /* --- Statements --- */
@@ -193,12 +170,8 @@ statement:
           { $$ = createASTNode("DECL_CHAR", $2, NULL, NULL); }
     | STRING IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_STRING", $2, NULL, NULL); }
-    /* New array declarations */
-    | array_declaration
-          { $$ = $1; }
-    /* Array element assignment */
-    | IDENTIFIER '[' expression ']' ASSIGN expression SEMICOLON
-          { $$ = createASTNode("ARRAY_ASSIGN", $1, createASTNode("ARRAY_ASSIGN_OP", NULL, $3, $6), NULL); }
+    | RETURN LPAREN expression RPAREN SEMICOLON
+          { $$ = createASTNode("RETURN", NULL, $3, NULL); }
     /* Function call as a statement */
     | IDENTIFIER LPAREN argument_list_opt RPAREN SEMICOLON
           { $$ = createASTNode("CALL", $1, $3, NULL); }
@@ -287,8 +260,6 @@ primary:
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
     | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
     | IDENTIFIER LPAREN argument_list_opt RPAREN { $$ = createASTNode("CALL", $1, $3, NULL); }
-    /* New rule: array access */
-    | IDENTIFIER '[' expression ']' { $$ = createASTNode("ARRAY_ACCESS", $1, $3, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
     ;
