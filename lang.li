@@ -1,4 +1,4 @@
-int i = 7;
-loop i : 10 {
+int i = 2;
+loop i : 7{
     print(i);
 }

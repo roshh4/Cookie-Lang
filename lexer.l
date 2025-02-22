@@ -8,9 +8,8 @@
 %option noyywrap
 
 %%
-
-"//".*                                   { /* Ignore single-line comments */ }
-"comment:"[^\n]*                         { /* Ignore comment lines starting with 'comment:' */ }
+"//".*                                   { /* Ignore single-line comment starting with '//' */ }
+"comment:"[^\n]*                         { /* Ignore comment starting with 'comment:' */ }
 "input"                                  { return INPUT; }
 "lesser"[ \t\n]+"than"[ \t\n]+"equals"    { return LE; }
 "greater"[ \t\n]+"than"[ \t\n]+"equals"   { return GE; }
@@ -39,10 +38,15 @@
 "str"                                    { return STRING; }
 "print"                                  { return PRINT; }
 "loop"                                   { return LOOP; }
+"if"                                     { return IF; }
+"else"                                   { return ELSE; }
+"fun"                                    { return FUN; }
+"return"                                 { return RETURN; }
 "switch"                                 { return SWITCH; }
 "case:"                                  { return CASE; }
 "default"                                { return DEFAULT; }
 "break"                                  { return BREAK; }
+":"                                      { return ':'; }
 ","                                      { return COMMA; }
 "<"                                      { return LT; }
 ">"                                      { return GT; }
@@ -58,9 +62,9 @@
 "/"                                      { return DIVIDE; }
 [0-9]+\.[0-9]+                          { yylval.str = strdup(yytext); return FLOAT_NUMBER; }
 [0-9]+                                   { yylval.str = strdup(yytext); return NUMBER; }
-"'"[^']"'"                              { yylval.str = strdup(yytext); return CHAR_LITERAL; }
+"'"[^\']"'"                              { yylval.str = strdup(yytext); return CHAR_LITERAL; }
 \"[^\"]*\"                              { yylval.str = strdup(yytext); return STRING_LITERAL; }
 [a-zA-Z_][a-zA-Z0-9_]*                    { yylval.str = strdup(yytext); return IDENTIFIER; }
 [ \t\n]+                                ;
-.                                        { /* Ignore any other character */ }
+.                                        { /* ignore any other character */ }
 %%
