@@ -1162,30 +1162,3 @@ void extractArgs(ASTNode* argNode, std::vector<Value*>& args, Function* currentF
     delete TheModule;
     return 0;
   }
-<<<<<<< HEAD
-=======
-  
-  generateFunctions(root);
-  
-  FunctionType *mainType = FunctionType::get(Type::getInt32Ty(Context), false);
-  Function *mainFunc = Function::Create(mainType, Function::ExternalLinkage, "main", TheModule);
-  BasicBlock *globalBB = BasicBlock::Create(Context, "global", mainFunc);
-  Builder.SetInsertPoint(globalBB);
-  generateGlobalStatements(root, mainFunc);
-  
-  BasicBlock *curBB = Builder.GetInsertBlock();
-  if (!curBB->getTerminator())
-    Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
-  
-  std::string error;
-  raw_string_ostream errorStream(error);
-  if (verifyModule(*TheModule, &errorStream)) {
-    std::cerr << "Error: " << errorStream.str() << "\n";
-    return 1;
-  }
-  TheModule->print(outs(), nullptr);
-  delete TheModule;
-  return 0;
-}
-
->>>>>>> 94cccdeb3a14a328951892c8d31b353869d9c963
