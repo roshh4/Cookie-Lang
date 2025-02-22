@@ -29,6 +29,7 @@ ASTNode *root;  // Global AST root.
 %token <str> NUMBER FLOAT_NUMBER CHAR_LITERAL IDENTIFIER BOOLEAN STRING_LITERAL
 %token FUN RETURN COMMA
 %token SWITCH CASE DEFAULT BREAK
+%token LBRACKET RBRACKET
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -43,6 +44,7 @@ ASTNode *root;  // Global AST root.
 %type <node> program global_declarations global_declaration statements statement loop_header expression logical_or_expression logical_and_expression equality_expression relational_expression additive_expression multiplicative_expression primary else_if_ladder_opt if_ladder
 %type <node> function_definition parameter_list_opt parameter_list parameter function_body argument_list_opt argument_list
 %type <node> case_list case_clause default_clause
+%type <node> element_list
 
 /* Start symbol */
 %start program
@@ -62,6 +64,7 @@ global_declaration:
       function_definition { $$ = $1; }
     | statement { $$ = $1; }
     ;
+
 
 /* --- Function Definitions --- */
 function_definition:
@@ -104,7 +107,7 @@ argument_list:
     ;
 
 /* --- Loop Header --- 
-     This nonterminal distinguishes the three loop forms:
+     This nonterminal distinguishes among three loop forms:
        - Iterator-based: "loop i : exp { ... }"
        - Range-based for-loop: "loop exp : exp { ... }"
        - Simple loop: "loop exp { ... }"
@@ -115,25 +118,30 @@ loop_header:
     | expression { $$ = createASTNode("LOOP", NULL, $1, NULL); }
     ;
 
+/* --- Element List for Arrays --- */
+element_list:
+      expression { $$ = $1; }
+    | element_list COMMA expression { $$ = createASTNode("ARRAY_ELEM_LIST", NULL, $1, $3); }
+    ;
+
 /* --- Statements --- */
 statements:
       statement { $$ = $1; }
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* Extended statement: for-loop, switch-case, break, etc. */
+/* Extended statement (includes loop, arrays, switch-case, etc.) */
 statement:
     INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
     | IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
           {
-            if ($8 == NULL) {
+            if ($8 == NULL)
               $$ = createASTNode("IF", NULL, $3, $6);
-            } else {
-              $$ = createASTNode("IF_CHAIN", NULL,
-                        createASTNode("IF", NULL, $3, $6), $8);
-            }
+            else
+              $$ = createASTNode("IF_CHAIN", NULL, createASTNode("IF", NULL, $3, $6), $8);
           }
+    /* Loop using the new loop_header (iterator/range-based) */
     | LOOP loop_header LBRACE statements RBRACE
           { $2->right = $4; $$ = $2; }
     | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
@@ -164,6 +172,8 @@ statement:
           { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
     | VAR IDENTIFIER IS expression SEMICOLON
           { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
+    /* Array assignment: e.g., arr[1] = 2; */
+    | IDENTIFIER LBRACKET expression RBRACKET ASSIGN expression SEMICOLON { $$ = createASTNode("ARRAY_ASSIGN", $1, $3, $6); }
     | TYPE LPAREN expression RPAREN
           { $$ = createASTNode("TYPE", NULL, $3, NULL); }
     | IDENTIFIER ASSIGN expression SEMICOLON
@@ -180,12 +190,18 @@ statement:
           { $$ = createASTNode("DECL_CHAR", $2, NULL, NULL); }
     | STRING IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_STRING", $2, NULL, NULL); }
+    /* Array declarations as statements (if not global) */
+    | INT IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY", $2, $4, NULL); }
+    | INT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT", $2, $7, NULL); }
     | RETURN LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("RETURN", NULL, $3, NULL); }
+    /* Function call as a statement */
     | IDENTIFIER LPAREN argument_list_opt RPAREN SEMICOLON
           { $$ = createASTNode("CALL", $1, $3, NULL); }
+    /* Switch-case statement with default clause */
     | SWITCH LPAREN expression RPAREN LBRACE case_list default_clause RBRACE
           { $$ = createASTNode("SWITCH", NULL, $3, createASTNode("SWITCH_BODY", NULL, $6, $7)); }
+    /* Break statement */
     | BREAK SEMICOLON { $$ = createASTNode("BREAK", NULL, NULL, NULL); }
     ;
 
@@ -267,6 +283,8 @@ primary:
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
     | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
     | IDENTIFIER LPAREN argument_list_opt RPAREN { $$ = createASTNode("CALL", $1, $3, NULL); }
+    /* Array access: e.g., arr[1] */
+    | IDENTIFIER LBRACKET expression RBRACKET { $$ = createASTNode("ARRAY_ACCESS", $1, $3, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
     ;

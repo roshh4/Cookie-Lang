@@ -1,0 +1,54 @@
+// THIS IS A COMMENT
+comment: THIS IS A COMMENT
+// THIS IS A COMMENT
+comment: THIS IS A COMMENT
+int n;
+input(n);
+int z = 9;
+float x = 1.4;
+char c = 'a';
+str v = "roshininiiiiiii";
+if (9 lesser than equals 2) {
+    print("IF WORKS!! so does lesser than equals");
+} else if (z greater than equals 1){
+    print("ELSE IF WORKS!! so does greater than equals");
+} else if (5 greater than 1){
+    print("GREATER THAN WORKD");
+}else if (5 lesser than 10){
+    print("lesser than works");
+}
+else {
+    print("ELSE WORKS!!");
+}
+
+if (c == 'a')
+{
+    print("== works");
+}
+
+if (c equals 'a')
+{
+    print("equals works");
+}
+
+if (c not equals 'b')
+{
+    print("not equals works");
+}
+
+if(c != 'b')
+{
+    print("!= works");
+}
+
+if (not(c == 'b'))
+{
+    print("not() works");
+}
+
+if (! (c == 'b'))
+{
+    print("!() works");
+}
+
+// DONE UPTIL LINE 24 of LEXER - !

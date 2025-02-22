@@ -27,6 +27,8 @@ int b = 3 + a;
 print(b);
 prints a garbage value
 
+bool b = false/true not working;
+
 -------------------------------------------
 text highlight:
 equals
