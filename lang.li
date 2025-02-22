@@ -1,3 +1,4 @@
-loop 5 {
-    print("fahim");
+
+loop 3 : 5 {
+  print("h");
 }

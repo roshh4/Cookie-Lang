@@ -109,7 +109,7 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* Extended statement to include for-loop, switch-case, break, etc. */
+/* Extended statement: Add for-loop, switch-case, break, etc. */
 statement:
     INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
           { $$ = createASTNode("INPUT", $3, NULL, NULL); }
@@ -122,14 +122,10 @@ statement:
                         createASTNode("IF", NULL, $3, $6), $8);
             }
           }
-    /* For-loop without explicit iterator: loop <upperBound> { ... } iterates from 1 to <upperBound> */
+    | LOOP expression ':' expression LBRACE statements RBRACE
+          { $$ = createASTNode("FOR_LOOP", NULL, createASTNode("RANGE", NULL, $2, $4), $6); }
     | LOOP expression LBRACE statements RBRACE
-          { $$ = createASTNode("FOR_LOOP", "", createASTNode("RANGE", NULL, createASTNode("NUMBER", "1", NULL, NULL), $2), $4); }
-    /* For-loop with iterator: loop i : <upperBound> { ... }.
-       If i is not already declared, it will be implicitly created and initialized to 1.
-       If i is pre-declared (and possibly initialized), its current value will be used as the start value. */
-    | LOOP IDENTIFIER ':' expression LBRACE statements RBRACE
-          { $$ = createASTNode("FOR_LOOP", $2, createASTNode("RANGE", NULL, NULL, $4), $6); }
+          { $$ = createASTNode("LOOP", NULL, $2, $4); }
     | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
