@@ -1,4 +1,3 @@
-int i = 2;
-loop i : 7{
-    print(i);
+loop 5 {
+    print("fahim");
 }
