@@ -1,3 +1,70 @@
-loop 5 {
-    print("fahim");
+// Function definition: add two integers.
+fun add(int a, int b) {
+    return(a + b);
+}
+
+// Function definition: greet a person.
+fun greet(str name) {
+    print("Hello, " + name);
+}
+
+// Variable declarations and assignments.
+var x = 10;
+var y = 20;
+var sum = add(x, y);
+print(sum);
+
+// Conditional: if-else.
+if (sum greater than 25) {
+    print("Sum is greater than 25");
+} else {
+    print("Sum is not greater than 25");
+}
+
+// Loop with a fixed count.
+loop 3 {
+    print("Looping...");
+}
+
+// Range-based for loop: loop from 1 to 5.
+loop 1 : 5 {
+    print("Range loop iteration");
+}
+
+int q = 0;
+int w = 7;
+loop q:w{
+    print("AVINAHS");
+}
+
+// Input example.
+input(x);
+print(x);
+
+// Switch-case example.
+switch(sum) {
+    case: 30
+        print("Sum is 30");
+    case: 40
+        print("Sum is 40");
+    default:
+        print("Sum is neither 30 nor 40");
+}
+
+// Function call.
+greet("World");
+
+int arr[] = {1,2,3,4,5};
+print(arr[5]);
+arr[5] = 7;
+print(arr[5]);
+
+int nums[3];
+nums[1] = 1;
+nums[2] = 2;
+nums[3] = 3;
+int i = 1;
+loop i:3{
+    print(nums[i]);
+    i = i + 1;
 }

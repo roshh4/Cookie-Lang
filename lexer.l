@@ -56,6 +56,8 @@
 ")"                                      { return RPAREN; }
 "{"                                      { return LBRACE; }
 "}"                                      { return RBRACE; }
+"["                                      { return LBRACKET; }
+"]"                                      { return RBRACKET; }
 "+"                                      { return PLUS; }
 "-"                                      { return MINUS; }
 "*"                                      { return MULTIPLY; }
