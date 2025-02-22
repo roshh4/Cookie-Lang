@@ -1,28 +1,5 @@
-loop i : 5 {
-    print(i);
-}
-
-print("hello");
-
-int t = 3;
-loop t : 5 {
-    print(t);
-}
-
 int arr[] = {1,2,3,4,5};
-print(arr[5]);
-arr[5] = 7;
-print(arr[5]);
-
-int nums[3];
-nums[1] = 1;
-nums[2] = 2;
-nums[3] = 3;
-int i = 1;
-loop i:3{
-    print(nums[i]);
-}
-
-loop i : 5 {
+int i = 5;
+loop i : arr{
     print(i);
 }

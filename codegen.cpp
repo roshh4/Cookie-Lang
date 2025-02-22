@@ -225,25 +225,28 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
   if (strcmp(node->type, "FOR_LOOP") == 0) {
     Value *startVal, *endVal;
     ASTNode *rangeNode = node->left;
-    // If node->value is provided, then we are using an iterator.
     if (node->value != NULL) {
-      // Try to get an existing iterator value from NamedValues.
       Value *existing = NamedValues[node->value];
       if (existing)
         startVal = Builder.CreateLoad(Type::getInt32Ty(Context), existing, node->value);
       else
         startVal = ConstantInt::get(Type::getInt32Ty(Context), 1);
-      // In this form, assume the range node's right child gives the end value.
       endVal = generateIR(rangeNode->right, currentFunction);
     } else {
-      // Otherwise, a simple range-based loop with two expressions.
       startVal = generateIR(rangeNode->left, currentFunction);
       endVal = generateIR(rangeNode->right, currentFunction);
     }
     if (!startVal->getType()->isIntegerTy(32))
       startVal = Builder.CreateIntCast(startVal, Type::getInt32Ty(Context), true, "start_cast");
-    if (!endVal->getType()->isIntegerTy(32))
-      endVal = Builder.CreateIntCast(endVal, Type::getInt32Ty(Context), true, "end_cast");
+    if (!endVal->getType()->isIntegerTy(32)) {
+      if (endVal->getType()->isArrayTy()) {
+        ArrayType *arrTy = dyn_cast<ArrayType>(endVal->getType());
+        unsigned len = arrTy->getNumElements();
+        endVal = ConstantInt::get(Type::getInt32Ty(Context), len);
+      } else {
+        endVal = Builder.CreateIntCast(endVal, Type::getInt32Ty(Context), true, "end_cast");
+      }
+    }
     
     AllocaInst *forVar = nullptr;
     if (node->value != NULL) {
@@ -278,6 +281,63 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     currVal = Builder.CreateLoad(Type::getInt32Ty(Context), forVar, (node->value ? node->value : "for_iter"));
     Value *nextVal = Builder.CreateAdd(currVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "forinc");
     Builder.CreateStore(nextVal, forVar);
+    Builder.CreateBr(condBB);
+    
+    Builder.SetInsertPoint(afterBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
+  // --- ARRAY_ITERATOR --- (New support for array iteration)
+  if (strcmp(node->type, "ARRAY_ITERATOR") == 0) {
+    std::string loopVarName = node->value;
+    std::string arrayName = node->left->value;
+    Value *arrPtr = NamedValues[arrayName];
+    if (!arrPtr) {
+      report_fatal_error(Twine("Error: Undefined array '") + arrayName + "'");
+    }
+    AllocaInst *arrAlloca = dyn_cast<AllocaInst>(arrPtr);
+    if (!arrAlloca) {
+      report_fatal_error("Error: Array variable is not an alloca in ARRAY_ITERATOR");
+    }
+    ArrayType *arrType = dyn_cast<ArrayType>(arrAlloca->getAllocatedType());
+    if (!arrType) {
+      report_fatal_error("Error: Variable is not an array type in ARRAY_ITERATOR");
+    }
+    unsigned arraySize = arrType->getNumElements();
+    
+    Function *curFunc = currentFunction;
+    AllocaInst *indexAlloca = CreateEntryBlockAlloca(curFunc, "array_iter_index", Type::getInt32Ty(Context));
+    Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 0), indexAlloca);
+    
+    BasicBlock *condBB = BasicBlock::Create(Context, "array_iter.cond", curFunc);
+    BasicBlock *bodyBB = BasicBlock::Create(Context, "array_iter.body", curFunc);
+    BasicBlock *afterBB = BasicBlock::Create(Context, "array_iter.after", curFunc);
+    
+    Builder.CreateBr(condBB);
+    Builder.SetInsertPoint(condBB);
+    Value *curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+    Value *iterCond = Builder.CreateICmpSLT(curIndex, ConstantInt::get(Type::getInt32Ty(Context), arraySize), "array_iter_cond");
+    Builder.CreateCondBr(iterCond, bodyBB, afterBB);
+    
+    Builder.SetInsertPoint(bodyBB);
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    indices.push_back(curIndex);
+    Value *elemPtr = Builder.CreateGEP(arrType, arrAlloca, indices, "array_elem_ptr");
+    Value *elemVal = Builder.CreateLoad(arrType->getElementType(), elemPtr, "array_elem");
+    
+    Value *loopVarAlloca = NamedValues[loopVarName];
+    if (!loopVarAlloca) {
+      loopVarAlloca = CreateEntryBlockAlloca(curFunc, loopVarName, elemVal->getType());
+      NamedValues[loopVarName] = loopVarAlloca;
+    }
+    Builder.CreateStore(elemVal, loopVarAlloca);
+    
+    generateIR(node->right, curFunc);
+    
+    curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+    Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
+    Builder.CreateStore(nextIndex, indexAlloca);
     Builder.CreateBr(condBB);
     
     Builder.SetInsertPoint(afterBB);
@@ -711,7 +771,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       report_fatal_error("Invalid array size expression");
     if (!sizeVal->getType()->isIntegerTy(32))
       sizeVal = Builder.CreateIntCast(sizeVal, Type::getInt32Ty(Context), true, "arraysize");
-    // Ensure the size is constant.
     if (ConstantInt *CI = dyn_cast<ConstantInt>(sizeVal)) {
       unsigned arraySize = CI->getZExtValue();
       ArrayType *arrType = ArrayType::get(Type::getInt32Ty(Context), arraySize);
@@ -770,7 +829,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       report_fatal_error(Twine("Error: Undeclared array '") + varName + "'");
     }
     Value *indexVal = generateIR(node->left, currentFunction);
-    // Adjust for 1-based indexing.
     indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
     std::vector<Value*> indices;
     indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
@@ -791,7 +849,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     if (!varPtr)
       report_fatal_error(Twine("Error: Undeclared array '") + varName + "'");
     Value *indexVal = generateIR(node->left, currentFunction);
-    // Adjust for 1-based indexing.
     indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
     std::vector<Value*> indices;
     indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
@@ -1099,4 +1156,3 @@ int main() {
   delete TheModule;
   return 0;
 }
-

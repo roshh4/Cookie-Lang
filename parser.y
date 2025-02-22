@@ -30,6 +30,7 @@ ASTNode *root;  // Global AST root.
 %token FUN RETURN COMMA
 %token SWITCH CASE DEFAULT BREAK
 %token LBRACKET RBRACKET
+%token INLINE
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -180,6 +181,9 @@ statement:
           { $$ = createASTNode("REASSIGN", $1, $3, NULL); }
     | PRINT LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("PRINT", NULL, $3, NULL); }
+    /* New inline print statement: prints without a newline */
+    | INLINE LPAREN expression RPAREN SEMICOLON
+          { $$ = createASTNode("INLINE", NULL, $3, NULL); }
     | INT IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_INT", $2, NULL, NULL); }
     | FLOAT IDENTIFIER SEMICOLON
