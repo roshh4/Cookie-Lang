@@ -66,6 +66,7 @@ global_declaration:
     | statement { $$ = $1; }
     ;
 
+
 /* --- Function Definitions --- */
 function_definition:
     FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
@@ -141,9 +142,6 @@ statement:
             else
               $$ = createASTNode("IF_CHAIN", NULL, createASTNode("IF", NULL, $3, $6), $8);
           }
-    /* New alternative for array iterator loop */
-    | LOOP IDENTIFIER ':' IDENTIFIER LBRACE statements RBRACE
-          { $$ = createASTNode("ARRAY_ITERATOR", $2, createASTNode("IDENTIFIER", $4, NULL, NULL), $6); }
     /* Loop using the new loop_header (iterator/range-based) */
     | LOOP loop_header LBRACE statements RBRACE
           { $2->right = $4; $$ = $2; }

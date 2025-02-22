@@ -9,6 +9,17 @@ loop i : arr{
     print(i);
 }
 
-loop i : nums{
-    print(i);
+print("HII");
+int j = 3;
+loop j : 5{
+    print(j);
 }
+
+print(arr[5]);
+arr[5] = 7;
+print(arr[5]);
+
+int nums[3];
+nums[1] = 1;
+nums[2] = 2;
+nums[3] = 3;
