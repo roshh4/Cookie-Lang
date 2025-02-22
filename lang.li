@@ -26,3 +26,12 @@ loop i:3{
 loop i : 5 {
     print(i);
 }
+
+
+loop i : arr{
+    print(i);
+}
+
+loop i : nums{
+    print(i);
+}

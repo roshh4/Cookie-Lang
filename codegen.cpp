@@ -284,6 +284,70 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
+  // --- ARRAY_ITERATOR --- (New support for array iteration)
+  if (strcmp(node->type, "ARRAY_ITERATOR") == 0) {
+    // Get the loop variable name (stored in node->value)
+    std::string loopVarName = node->value;
+    // The array identifier is stored in node->left (its value field holds the array name)
+    std::string arrayName = node->left->value;
+    Value *arrPtr = NamedValues[arrayName];
+    if (!arrPtr) {
+      report_fatal_error(Twine("Error: Undefined array '") + arrayName + "'");
+    }
+    AllocaInst *arrAlloca = dyn_cast<AllocaInst>(arrPtr);
+    if (!arrAlloca) {
+      report_fatal_error("Error: Array variable is not an alloca in ARRAY_ITERATOR");
+    }
+    ArrayType *arrType = dyn_cast<ArrayType>(arrAlloca->getAllocatedType());
+    if (!arrType) {
+      report_fatal_error("Error: Variable is not an array type in ARRAY_ITERATOR");
+    }
+    unsigned arraySize = arrType->getNumElements();
+
+    // Allocate an index variable for iteration.
+    Function *curFunc = currentFunction;
+    AllocaInst *indexAlloca = CreateEntryBlockAlloca(curFunc, "array_iter_index", Type::getInt32Ty(Context));
+    Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 0), indexAlloca);
+
+    // Create basic blocks for loop condition, body, and after.
+    BasicBlock *condBB = BasicBlock::Create(Context, "array_iter.cond", curFunc);
+    BasicBlock *bodyBB = BasicBlock::Create(Context, "array_iter.body", curFunc);
+    BasicBlock *afterBB = BasicBlock::Create(Context, "array_iter.after", curFunc);
+
+    Builder.CreateBr(condBB);
+    Builder.SetInsertPoint(condBB);
+    Value *curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+    Value *iterCond = Builder.CreateICmpSLT(curIndex, ConstantInt::get(Type::getInt32Ty(Context), arraySize), "array_iter_cond");
+    Builder.CreateCondBr(iterCond, bodyBB, afterBB);
+
+    Builder.SetInsertPoint(bodyBB);
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    indices.push_back(curIndex);
+    Value *elemPtr = Builder.CreateGEP(arrType, arrAlloca, indices, "array_elem_ptr");
+    Value *elemVal = Builder.CreateLoad(arrType->getElementType(), elemPtr, "array_elem");
+    
+    // Create or update the loop variable in the symbol table.
+    Value *loopVarAlloca = NamedValues[loopVarName];
+    if (!loopVarAlloca) {
+      loopVarAlloca = CreateEntryBlockAlloca(curFunc, loopVarName, elemVal->getType());
+      NamedValues[loopVarName] = loopVarAlloca;
+    }
+    Builder.CreateStore(elemVal, loopVarAlloca);
+    
+    // Generate the loop body.
+    generateIR(node->right, curFunc);
+    
+    // Increment the index.
+    curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+    Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
+    Builder.CreateStore(nextIndex, indexAlloca);
+    Builder.CreateBr(condBB);
+
+    Builder.SetInsertPoint(afterBB);
+    return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }
+  
   // --- Identifier lookup ---
   if (strcmp(node->type, "IDENTIFIER") == 0) {
     Value* varPtr = NamedValues[node->value];
@@ -351,7 +415,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return Builder.CreateFDiv(L, R, "fdivtmp");
     return Builder.CreateSDiv(L, R, "divtmp");
   }
-  
   // --- Relational Operators ---
   if (strcmp(node->type, "LT") == 0) {
     Value *L = generateIR(node->left, currentFunction);
@@ -361,7 +424,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     else
       return Builder.CreateICmpSLT(L, R, "cmptmp");
   }
-  
+
   if (strcmp(node->type, "GT") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -379,7 +442,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     else
       return Builder.CreateICmpSLE(L, R, "cmptmp");
   }
-  
+
   if (strcmp(node->type, "GE") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -1070,32 +1133,32 @@ void extractArgs(ASTNode* argNode, std::vector<Value*>& args, Function* currentF
   }
 }
 
-// --- Main ---
-// Generate IR for function definitions then generate global statements in main().
-int main() {
-  if (yyparse() != 0) {
-    return 1;
+  // --- Main ---
+  // Generate IR for function definitions then generate global statements in main().
+  int main() {
+    if (yyparse() != 0) {
+      return 1;
+    }
+    
+    generateFunctions(root);
+    
+    FunctionType *mainType = FunctionType::get(Type::getInt32Ty(Context), false);
+    Function *mainFunc = Function::Create(mainType, Function::ExternalLinkage, "main", TheModule);
+    BasicBlock *globalBB = BasicBlock::Create(Context, "global", mainFunc);
+    Builder.SetInsertPoint(globalBB);
+    generateGlobalStatements(root, mainFunc);
+    
+    BasicBlock *curBB = Builder.GetInsertBlock();
+    if (!curBB->getTerminator())
+      Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    
+    std::string error;
+    raw_string_ostream errorStream(error);
+    if (verifyModule(*TheModule, &errorStream)) {
+      std::cerr << "Error: " << errorStream.str() << "\n";
+      return 1;
+    }
+    TheModule->print(outs(), nullptr);
+    delete TheModule;
+    return 0;
   }
-  
-  generateFunctions(root);
-  
-  FunctionType *mainType = FunctionType::get(Type::getInt32Ty(Context), false);
-  Function *mainFunc = Function::Create(mainType, Function::ExternalLinkage, "main", TheModule);
-  BasicBlock *globalBB = BasicBlock::Create(Context, "global", mainFunc);
-  Builder.SetInsertPoint(globalBB);
-  generateGlobalStatements(root, mainFunc);
-  
-  BasicBlock *curBB = Builder.GetInsertBlock();
-  if (!curBB->getTerminator())
-    Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
-  
-  std::string error;
-  raw_string_ostream errorStream(error);
-  if (verifyModule(*TheModule, &errorStream)) {
-    std::cerr << "Error: " << errorStream.str() << "\n";
-    return 1;
-  }
-  TheModule->print(outs(), nullptr);
-  delete TheModule;
-  return 0;
-}
