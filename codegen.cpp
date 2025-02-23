@@ -399,7 +399,10 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     Builder.CreateStore(elemVal, loopVarAlloca);
     
+    // Generate the loop body (which typically calls inline(i) for each element).
     generateIR(node->right, curFunc);
+    
+    // Removed automatic newline insertion here so that inline(i) prints consecutively.
     
     curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
     Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
@@ -408,7 +411,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     Builder.SetInsertPoint(afterBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
-  }
+  }   
   
   // --- New branch for INPUT_EXPR ---
   if (strcmp(node->type, "INPUT_EXPR") == 0) {
@@ -663,6 +666,21 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
     return exprVal;
   }
+
+    // --- PRINT_NEWLINE ---
+    if (strcmp(node->type, "PRINT_NEWLINE") == 0) {
+      Constant *newlineStr = ConstantDataArray::getString(Context, "\n", true);
+      GlobalVariable *nlVar = TheModule->getNamedGlobal(".str_newline");
+      if (!nlVar) {
+        nlVar = new GlobalVariable(*TheModule, newlineStr->getType(), true,
+                                   GlobalValue::PrivateLinkage, newlineStr, ".str_newline");
+      }
+      Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      std::vector<Constant*> nlIndices = {zero, zero};
+      Constant *nlPtr = ConstantExpr::getGetElementPtr(nlVar->getValueType(), nlVar, nlIndices);
+      Builder.CreateCall(getPrintfFunction(), {nlPtr});
+      return ConstantInt::get(Type::getInt32Ty(Context), 0);
+    }
   
   // --- INPUT ---
   if (strcmp(node->type, "INPUT") == 0) {
@@ -892,25 +910,28 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return varPtr;
   }
   
-  // --- Array Declarations for FLOAT ---
-  if (strcmp(node->type, "DECL_ARRAY_FLOAT") == 0) {
+  // --- Array Assignment ---
+  if (strcmp(node->type, "ARRAY_ASSIGN") == 0) {
     std::string varName = node->value;
-    Value *sizeVal = generateIR(node->left, currentFunction);
-    if (!sizeVal)
-      report_fatal_error("Invalid array size expression");
-    if (!sizeVal->getType()->isIntegerTy(32))
-      sizeVal = Builder.CreateIntCast(sizeVal, Type::getInt32Ty(Context), true, "arraysize");
-    if (ConstantInt *CI = dyn_cast<ConstantInt>(sizeVal)) {
-      unsigned arraySize = CI->getZExtValue();
-      ArrayType *arrType = ArrayType::get(Type::getFloatTy(Context), arraySize);
-      AllocaInst *varPtr = Builder.CreateAlloca(arrType, nullptr, varName);
-      NamedValues[varName] = varPtr;
-      return varPtr;
-    } else {
-      report_fatal_error("Only constant array sizes are supported in DECL_ARRAY_FLOAT");
+    Value *varPtr = NamedValues[varName];
+    if (!varPtr) {
+      report_fatal_error(Twine("Error: Undeclared array '") + varName + "'");
     }
+    Value *indexVal = generateIR(node->left, currentFunction);
+    indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    indices.push_back(indexVal);
+    AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+    if (!AI)
+      report_fatal_error("Array variable is not an alloca!");
+    Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+    Value *newVal = generateIR(node->right, currentFunction);
+    Builder.CreateStore(newVal, elemPtr);
+    return newVal;
   }
-  
+
+  // --- Array Access ---
   if (strcmp(node->type, "DECL_ARRAY_INIT_FLOAT") == 0) {
     std::string varName = node->value;
     int count = 0;
@@ -1447,6 +1468,23 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
     return exprVal;
   }
+
+
+
+    // --- PRINT_NEWLINE ---
+    if (strcmp(node->type, "PRINT_NEWLINE") == 0) {
+      Constant *newlineStr = ConstantDataArray::getString(Context, "\n", true);
+      GlobalVariable *nlVar = TheModule->getNamedGlobal(".str_newline");
+      if (!nlVar) {
+        nlVar = new GlobalVariable(*TheModule, newlineStr->getType(), true,
+        GlobalValue::PrivateLinkage, newlineStr, ".str_newline");
+      }
+      Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      std::vector<Constant*> indices = {zero, zero};
+      Constant *nlPtr = ConstantExpr::getGetElementPtr(nlVar->getValueType(), nlVar, indices);
+      Builder.CreateCall(getPrintfFunction(), {nlPtr});
+      return ConstantInt::get(Type::getInt32Ty(Context), 0);
+    }
   
   return nullptr;
 }

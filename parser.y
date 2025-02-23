@@ -130,7 +130,6 @@ statements:
     | statements statement { $$ = createASTNode("STATEMENT_LIST", NULL, $1, $2); }
     ;
 
-/* Extended statement (includes loop, arrays, switch-case, etc.) */
 statement:
     /* Unified INPUT alternative for both simple identifiers and complex expressions */
     INPUT LPAREN expression RPAREN SEMICOLON { $$ = createASTNode("INPUT_EXPR", NULL, $3, NULL); }
@@ -174,15 +173,15 @@ statement:
           { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
     | VAR IDENTIFIER IS expression SEMICOLON
           { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
-    /* Array assignment: e.g., arr[1] = 2; */
     | IDENTIFIER LBRACKET expression RBRACKET ASSIGN expression SEMICOLON { $$ = createASTNode("ARRAY_ASSIGN", $1, $3, $6); }
     | TYPE LPAREN expression RPAREN
           { $$ = createASTNode("TYPE", NULL, $3, NULL); }
-    | IDENTIFIER ASSIGN expression SEMICOLON
-          { $$ = createASTNode("REASSIGN", $1, $3, NULL); }
-    | PRINT LPAREN expression RPAREN SEMICOLON
-          { $$ = createASTNode("PRINT", NULL, $3, NULL); }
-    /* New inline print statement: prints without a newline */
+      | IDENTIFIER ASSIGN expression SEMICOLON
+            { $$ = createASTNode("REASSIGN", $1, $3, NULL); }
+      | PRINT LPAREN expression RPAREN SEMICOLON
+            { $$ = createASTNode("PRINT", NULL, $3, NULL); }
+      | PRINT LPAREN RPAREN SEMICOLON 
+            { $$ = createASTNode("PRINT_NEWLINE", NULL, NULL, NULL); }
     | INLINE LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("INLINE", NULL, $3, NULL); }
     | INT IDENTIFIER SEMICOLON
