@@ -132,8 +132,8 @@ statements:
 
 /* Extended statement (includes loop, arrays, switch-case, etc.) */
 statement:
-    INPUT LPAREN IDENTIFIER RPAREN SEMICOLON
-          { $$ = createASTNode("INPUT", $3, NULL, NULL); }
+    /* Unified INPUT alternative for both simple identifiers and complex expressions */
+    INPUT LPAREN expression RPAREN SEMICOLON { $$ = createASTNode("INPUT_EXPR", NULL, $3, NULL); }
     | IF LPAREN expression RPAREN LBRACE statements RBRACE else_if_ladder_opt
           {
             if ($8 == NULL)
@@ -142,9 +142,11 @@ statement:
               $$ = createASTNode("IF_CHAIN", NULL, createASTNode("IF", NULL, $3, $6), $8);
           }
     /* Loop using the new loop_header (iterator/range-based) */
-    | LOOP loop_header LBRACE statements RBRACE
+      | LOOP IDENTIFIER ':' IDENTIFIER LBRACE statements RBRACE
+          { $$ = createASTNode("ARRAY_ITERATOR", $2, createASTNode("IDENTIFIER", $4, NULL, NULL), $6); }
+      | LOOP loop_header LBRACE statements RBRACE
           { $2->right = $4; $$ = $2; }
-    | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
+      | LOOP UNTIL LPAREN expression RPAREN LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $4, $7); }
     | WHILE UNTIL expression LBRACE statements RBRACE
           { $$ = createASTNode("LOOP_UNTIL", NULL, $3, $5); }
@@ -196,6 +198,14 @@ statement:
     /* Array declarations as statements (if not global) */
     | INT IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY", $2, $4, NULL); }
     | INT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT", $2, $7, NULL); }
+    | FLOAT IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_FLOAT", $2, $4, NULL); }
+    | FLOAT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_FLOAT", $2, $7, NULL); }
+    | BOOL IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_BOOL", $2, $4, NULL); }
+    | BOOL IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_BOOL", $2, $7, NULL); }
+    | CHAR IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_CHAR", $2, $4, NULL); }
+    | CHAR IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_CHAR", $2, $7, NULL); }
+    | STRING IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_STRING", $2, $4, NULL); }
+    | STRING IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_STRING", $2, $7, NULL); }
     | RETURN LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("RETURN", NULL, $3, NULL); }
     /* Function call as a statement */
@@ -207,6 +217,7 @@ statement:
     /* Break statement */
     | BREAK SEMICOLON { $$ = createASTNode("BREAK", NULL, NULL, NULL); }
     ;
+    
 
 else_if_ladder_opt:
       /* empty */ { $$ = NULL; }
