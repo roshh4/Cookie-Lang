@@ -47,6 +47,8 @@
 "default"                                { return DEFAULT; }
 "break"                                  { return BREAK; }
 "inline"                                 { return INLINE; }
+"true"                                   { yylval.str = strdup("true"); return BOOLEAN; }
+"false"                                  { yylval.str = strdup("false"); return BOOLEAN; }
 ":"                                      { return ':'; }
 ","                                      { return COMMA; }
 "<"                                      { return LT; }

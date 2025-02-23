@@ -153,6 +153,72 @@ Function* getReadStringFunction() {
   return readStrFunc;
 }
 
+
+// --- New branch for INPUT_EXPR ---
+// This branch supports input statements with expressions (such as input(arr[4]);)
+// without changing any of the old lines.
+Value *generateInputExpr(ASTNode *node, Function* currentFunction) {
+  // node->left is the expression (lvalue) for input
+  if (strcmp(node->left->type, "ARRAY_ACCESS") == 0) {
+         std::string varName = node->left->value;
+         Value *varPtr = NamedValues[varName];
+         if (!varPtr)
+            report_fatal_error(Twine("Error: Undeclared array '") + varName + "'");
+         Value *indexVal = generateIR(node->left->left, currentFunction);
+         indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
+         std::vector<Value*> indices;
+         indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+         indices.push_back(indexVal);
+         AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+         if (!AI)
+             report_fatal_error("Array variable is not an alloca!");
+         Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+         Type *elemType = AI->getAllocatedType()->getArrayElementType();
+         Value *inputVal = nullptr;
+         if (elemType->isIntegerTy(32))
+            inputVal = Builder.CreateCall(getReadIntFunction(), {}, "readInt");
+         else if (elemType->isFloatTy())
+            inputVal = Builder.CreateCall(getReadFloatFunction(), {}, "readFloat");
+         else if (elemType->isIntegerTy(1))
+            inputVal = Builder.CreateCall(getReadBoolFunction(), {}, "readBool");
+         else if (elemType->isIntegerTy(8))
+            inputVal = Builder.CreateCall(getReadCharFunction(), {}, "readChar");
+         else if (elemType->isPointerTy())
+            inputVal = Builder.CreateCall(getReadStringFunction(), {}, "readStr");
+         else
+            inputVal = ConstantInt::get(Type::getInt32Ty(Context), 0);
+         Builder.CreateStore(inputVal, elemPtr);
+         return inputVal;
+  } else if (strcmp(node->left->type, "IDENTIFIER") == 0) {
+         std::string varName = node->left->value;
+         Value *varPtr = NamedValues[varName];
+         if (!varPtr) {
+             varPtr = CreateEntryBlockAlloca(currentFunction, varName, Type::getInt32Ty(Context));
+             NamedValues[varName] = varPtr;
+         }
+         AllocaInst *allocaInst = dyn_cast<AllocaInst>(varPtr);
+         Type *allocatedType = allocaInst->getAllocatedType();
+         Value *inputVal = nullptr;
+         if (allocatedType == Type::getInt32Ty(Context))
+             inputVal = Builder.CreateCall(getReadIntFunction(), {}, "readInt");
+         else if (allocatedType == Type::getFloatTy(Context))
+             inputVal = Builder.CreateCall(getReadFloatFunction(), {}, "readFloat");
+         else if (allocatedType == Type::getInt1Ty(Context))
+             inputVal = Builder.CreateCall(getReadBoolFunction(), {}, "readBool");
+         else if (allocatedType == Type::getInt8Ty(Context))
+             inputVal = Builder.CreateCall(getReadCharFunction(), {}, "readChar");
+         else if (allocatedType->isPointerTy())
+             inputVal = Builder.CreateCall(getReadStringFunction(), {}, "readStr");
+         else
+             inputVal = ConstantInt::get(Type::getInt32Ty(Context), 0);
+         Builder.CreateStore(inputVal, varPtr);
+         return inputVal;
+  } else {
+         report_fatal_error("INPUT_EXPR: Unsupported lvalue for input");
+  }
+}
+
+ 
 // --- Helper Passes for IR Generation ---
 // Generate IR for all function definitions.
 void generateFunctions(ASTNode* node) {
@@ -333,7 +399,10 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
     Builder.CreateStore(elemVal, loopVarAlloca);
     
+    // Generate the loop body (which typically calls inline(i) for each element).
     generateIR(node->right, curFunc);
+    
+    // Removed automatic newline insertion here so that inline(i) prints consecutively.
     
     curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
     Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
@@ -342,6 +411,11 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     Builder.SetInsertPoint(afterBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
+  }   
+  
+  // --- New branch for INPUT_EXPR ---
+  if (strcmp(node->type, "INPUT_EXPR") == 0) {
+    return generateInputExpr(node, currentFunction);
   }
   
   // --- Identifier lookup ---
@@ -592,6 +666,21 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
     return exprVal;
   }
+
+    // --- PRINT_NEWLINE ---
+    if (strcmp(node->type, "PRINT_NEWLINE") == 0) {
+      Constant *newlineStr = ConstantDataArray::getString(Context, "\n", true);
+      GlobalVariable *nlVar = TheModule->getNamedGlobal(".str_newline");
+      if (!nlVar) {
+        nlVar = new GlobalVariable(*TheModule, newlineStr->getType(), true,
+                                   GlobalValue::PrivateLinkage, newlineStr, ".str_newline");
+      }
+      Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      std::vector<Constant*> nlIndices = {zero, zero};
+      Constant *nlPtr = ConstantExpr::getGetElementPtr(nlVar->getValueType(), nlVar, nlIndices);
+      Builder.CreateCall(getPrintfFunction(), {nlPtr});
+      return ConstantInt::get(Type::getInt32Ty(Context), 0);
+    }
   
   // --- INPUT ---
   if (strcmp(node->type, "INPUT") == 0) {
@@ -763,7 +852,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return exprVal;
   }
   
-  // --- Array Declarations ---
+  // --- Array Declarations for INT ---
   if (strcmp(node->type, "DECL_ARRAY") == 0) {
     std::string varName = node->value;
     Value *sizeVal = generateIR(node->left, currentFunction);
@@ -841,22 +930,223 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateStore(newVal, elemPtr);
     return newVal;
   }
-  
+
   // --- Array Access ---
-  if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
+  if (strcmp(node->type, "DECL_ARRAY_INIT_FLOAT") == 0) {
     std::string varName = node->value;
-    Value *varPtr = NamedValues[varName];
-    if (!varPtr)
-      report_fatal_error(Twine("Error: Undeclared array '") + varName + "'");
-    Value *indexVal = generateIR(node->left, currentFunction);
-    indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
-    std::vector<Value*> indices;
-    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
-    indices.push_back(indexVal);
-    AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
-    if (!AI)
-      report_fatal_error("Array variable is not an alloca!");
-    return Builder.CreateLoad(AI->getAllocatedType()->getArrayElementType(), Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem"), varName.c_str());
+    int count = 0;
+    std::function<void(ASTNode*)> countElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             countElements(n->left);
+             countElements(n->right);
+         } else {
+             count++;
+         }
+    };
+    countElements(node->left);
+    Value *countVal = ConstantInt::get(Type::getInt32Ty(Context), count);
+    AllocaInst *varPtr = Builder.CreateAlloca(ArrayType::get(Type::getFloatTy(Context), count), nullptr, varName);
+    NamedValues[varName] = varPtr;
+    int index = 0;
+    std::function<void(ASTNode*)> storeElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             storeElements(n->left);
+             storeElements(n->right);
+         } else {
+             Value *elemVal = generateIR(n, currentFunction);
+             if (elemVal->getType()->isIntegerTy())
+                elemVal = Builder.CreateSIToFP(elemVal, Type::getFloatTy(Context), "intToFloat");
+             std::vector<Value*> indices;
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), index));
+             AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+             if (!AI)
+               report_fatal_error("Array variable is not an alloca!");
+             Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+             Builder.CreateStore(elemVal, elemPtr);
+             index++;
+         }
+    };
+    storeElements(node->left);
+    return varPtr;
+  }
+  
+  // --- Array Declarations for BOOL ---
+  if (strcmp(node->type, "DECL_ARRAY_BOOL") == 0) {
+    std::string varName = node->value;
+    Value *sizeVal = generateIR(node->left, currentFunction);
+    if (!sizeVal)
+      report_fatal_error("Invalid array size expression");
+    if (!sizeVal->getType()->isIntegerTy(32))
+      sizeVal = Builder.CreateIntCast(sizeVal, Type::getInt32Ty(Context), true, "arraysize");
+    if (ConstantInt *CI = dyn_cast<ConstantInt>(sizeVal)) {
+      unsigned arraySize = CI->getZExtValue();
+      ArrayType *arrType = ArrayType::get(Type::getInt1Ty(Context), arraySize);
+      AllocaInst *varPtr = Builder.CreateAlloca(arrType, nullptr, varName);
+      NamedValues[varName] = varPtr;
+      return varPtr;
+    } else {
+      report_fatal_error("Only constant array sizes are supported in DECL_ARRAY_BOOL");
+    }
+  }
+  
+  if (strcmp(node->type, "DECL_ARRAY_INIT_BOOL") == 0) {
+    std::string varName = node->value;
+    int count = 0;
+    std::function<void(ASTNode*)> countElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             countElements(n->left);
+             countElements(n->right);
+         } else {
+             count++;
+         }
+    };
+    countElements(node->left);
+    Value *countVal = ConstantInt::get(Type::getInt32Ty(Context), count);
+    AllocaInst *varPtr = Builder.CreateAlloca(ArrayType::get(Type::getInt1Ty(Context), count), nullptr, varName);
+    NamedValues[varName] = varPtr;
+    int index = 0;
+    std::function<void(ASTNode*)> storeElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             storeElements(n->left);
+             storeElements(n->right);
+         } else {
+             Value *elemVal = generateIR(n, currentFunction);
+             if (!elemVal->getType()->isIntegerTy(1))
+                elemVal = Builder.CreateICmpNE(elemVal, ConstantInt::get(elemVal->getType(), 0), "boolcast");
+             std::vector<Value*> indices;
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), index));
+             AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+             if (!AI)
+               report_fatal_error("Array variable is not an alloca!");
+             Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+             Builder.CreateStore(elemVal, elemPtr);
+             index++;
+         }
+    };
+    storeElements(node->left);
+    return varPtr;
+  }
+  
+  // --- Array Declarations for CHAR ---
+  if (strcmp(node->type, "DECL_ARRAY_CHAR") == 0) {
+    std::string varName = node->value;
+    Value *sizeVal = generateIR(node->left, currentFunction);
+    if (!sizeVal)
+      report_fatal_error("Invalid array size expression");
+    if (!sizeVal->getType()->isIntegerTy(32))
+      sizeVal = Builder.CreateIntCast(sizeVal, Type::getInt32Ty(Context), true, "arraysize");
+    if (ConstantInt *CI = dyn_cast<ConstantInt>(sizeVal)) {
+      unsigned arraySize = CI->getZExtValue();
+      ArrayType *arrType = ArrayType::get(Type::getInt8Ty(Context), arraySize);
+      AllocaInst *varPtr = Builder.CreateAlloca(arrType, nullptr, varName);
+      NamedValues[varName] = varPtr;
+      return varPtr;
+    } else {
+      report_fatal_error("Only constant array sizes are supported in DECL_ARRAY_CHAR");
+    }
+  }
+  
+  if (strcmp(node->type, "DECL_ARRAY_INIT_CHAR") == 0) {
+    std::string varName = node->value;
+    int count = 0;
+    std::function<void(ASTNode*)> countElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             countElements(n->left);
+             countElements(n->right);
+         } else {
+             count++;
+         }
+    };
+    countElements(node->left);
+    Value *countVal = ConstantInt::get(Type::getInt32Ty(Context), count);
+    AllocaInst *varPtr = Builder.CreateAlloca(ArrayType::get(Type::getInt8Ty(Context), count), nullptr, varName);
+    NamedValues[varName] = varPtr;
+    int index = 0;
+    std::function<void(ASTNode*)> storeElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             storeElements(n->left);
+             storeElements(n->right);
+         } else {
+             Value *elemVal = generateIR(n, currentFunction);
+             std::vector<Value*> indices;
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), index));
+             AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+             if (!AI)
+               report_fatal_error("Array variable is not an alloca!");
+             Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+             Builder.CreateStore(elemVal, elemPtr);
+             index++;
+         }
+    };
+    storeElements(node->left);
+    return varPtr;
+  }
+  
+  // --- Array Declarations for STRING ---
+  if (strcmp(node->type, "DECL_ARRAY_STRING") == 0) {
+    std::string varName = node->value;
+    Value *sizeVal = generateIR(node->left, currentFunction);
+    if (!sizeVal)
+      report_fatal_error("Invalid array size expression");
+    if (!sizeVal->getType()->isIntegerTy(32))
+      sizeVal = Builder.CreateIntCast(sizeVal, Type::getInt32Ty(Context), true, "arraysize");
+    if (ConstantInt *CI = dyn_cast<ConstantInt>(sizeVal)) {
+      unsigned arraySize = CI->getZExtValue();
+      ArrayType *arrType = ArrayType::get(PointerType::get(Type::getInt8Ty(Context), 0), arraySize);
+      AllocaInst *varPtr = Builder.CreateAlloca(arrType, nullptr, varName);
+      NamedValues[varName] = varPtr;
+      return varPtr;
+    } else {
+      report_fatal_error("Only constant array sizes are supported in DECL_ARRAY_STRING");
+    }
+  }
+  
+  if (strcmp(node->type, "DECL_ARRAY_INIT_STRING") == 0) {
+    std::string varName = node->value;
+    int count = 0;
+    std::function<void(ASTNode*)> countElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             countElements(n->left);
+             countElements(n->right);
+         } else {
+             count++;
+         }
+    };
+    countElements(node->left);
+    Value *countVal = ConstantInt::get(Type::getInt32Ty(Context), count);
+    AllocaInst *varPtr = Builder.CreateAlloca(ArrayType::get(PointerType::get(Type::getInt8Ty(Context), 0), count), nullptr, varName);
+    NamedValues[varName] = varPtr;
+    int index = 0;
+    std::function<void(ASTNode*)> storeElements = [&](ASTNode* n) {
+         if (!n) return;
+         if (strcmp(n->type, "ARRAY_ELEM_LIST") == 0) {
+             storeElements(n->left);
+             storeElements(n->right);
+         } else {
+             Value *elemVal = generateIR(n, currentFunction);
+             std::vector<Value*> indices;
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+             indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), index));
+             AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+             if (!AI)
+               report_fatal_error("Array variable is not an alloca!");
+             Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+             Builder.CreateStore(elemVal, elemPtr);
+             index++;
+         }
+    };
+    storeElements(node->left);
+    return varPtr;
   }
   
   // --- TYPE operator ---
@@ -1095,6 +1385,106 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     extractArgs(node->left, argsV, currentFunction);
     return Builder.CreateCall(callee, argsV, "calltmp");
   }
+
+  // --- INLINE ---
+  if (strcmp(node->type, "INLINE") == 0) {
+    Value *exprVal = generateIR(node->left, currentFunction);
+    Type *exprType = exprVal->getType();
+    GlobalVariable *fmtStrVar = nullptr;
+    if (exprType->isIntegerTy(1)) {
+      GlobalVariable *trueStr = TheModule->getNamedGlobal(".str_true");
+      if (!trueStr) {
+        Constant *tstr = ConstantDataArray::getString(Context, "true", true);
+        trueStr = new GlobalVariable(*TheModule, tstr->getType(), true,
+                                   GlobalValue::PrivateLinkage, tstr, ".str_true");
+      }
+      GlobalVariable *falseStr = TheModule->getNamedGlobal(".str_false");
+      if (!falseStr) {
+        Constant *fstr = ConstantDataArray::getString(Context, "false", true);
+        falseStr = new GlobalVariable(*TheModule, fstr->getType(), true,
+                                    GlobalValue::PrivateLinkage, fstr, ".str_false");
+      }
+      Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      std::vector<Constant*> indices = {zero, zero};
+      Constant *trueStrPtr = ConstantExpr::getGetElementPtr(trueStr->getValueType(), trueStr, indices);
+      Constant *falseStrPtr = ConstantExpr::getGetElementPtr(falseStr->getValueType(), falseStr, indices);
+      Value *boolStr = Builder.CreateSelect(exprVal, trueStrPtr, falseStrPtr, "boolstr");
+      GlobalVariable *fmtStrVarBool = TheModule->getNamedGlobal(".str_bool");
+      if (!fmtStrVarBool) {
+        Constant *formatStr = ConstantDataArray::getString(Context, "%s", true);
+        fmtStrVarBool = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                           GlobalValue::PrivateLinkage, formatStr, ".str_bool");
+      }
+      fmtStrVar = fmtStrVarBool;
+      exprVal = boolStr;
+    } else if (exprType->isFloatTy()) {
+      // For floats, use inline format without newline.
+      Constant *formatStr = ConstantDataArray::getString(Context, "%.1f", true);
+      GlobalVariable *fmt = TheModule->getNamedGlobal(".str_inline_float");
+      if (!fmt) {
+        fmt = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                 GlobalValue::PrivateLinkage, formatStr, ".str_inline_float");
+      }
+      fmtStrVar = fmt;
+      exprVal = Builder.CreateFPExt(exprVal, Type::getDoubleTy(Context), "toDouble");
+    } else if (exprType->isIntegerTy(8)) {
+      Constant *formatStr = ConstantDataArray::getString(Context, "%c", true);
+      GlobalVariable *fmt = TheModule->getNamedGlobal(".str_inline_char");
+      if (!fmt) {
+        fmt = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                 GlobalValue::PrivateLinkage, formatStr, ".str_inline_char");
+      }
+      fmtStrVar = fmt;
+    } else if (exprType->isPointerTy()) {
+      if (exprType == PointerType::get(Type::getInt8Ty(Context), 0)) {
+        Constant *formatStr = ConstantDataArray::getString(Context, "%s", true);
+        GlobalVariable *fmt = TheModule->getNamedGlobal(".str_inline_string");
+        if (!fmt) {
+          fmt = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                 GlobalValue::PrivateLinkage, formatStr, ".str_inline_string");
+        }
+        fmtStrVar = fmt;
+      } else {
+        Constant *formatStr = ConstantDataArray::getString(Context, "%d", true);
+        GlobalVariable *fmt = TheModule->getNamedGlobal(".str_inline_int");
+        if (!fmt) {
+          fmt = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                 GlobalValue::PrivateLinkage, formatStr, ".str_inline_int");
+        }
+        fmtStrVar = fmt;
+      }
+    } else {
+      Constant *formatStr = ConstantDataArray::getString(Context, "%d", true);
+      GlobalVariable *fmt = TheModule->getNamedGlobal(".str_inline_int");
+      if (!fmt) {
+        fmt = new GlobalVariable(*TheModule, formatStr->getType(), true,
+                                 GlobalValue::PrivateLinkage, formatStr, ".str_inline_int");
+      }
+      fmtStrVar = fmt;
+    }
+    Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+    std::vector<Constant*> indices = {zero, zero};
+    Constant *fmtStrPtr = ConstantExpr::getGetElementPtr(fmtStrVar->getValueType(), fmtStrVar, indices);
+    Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
+    return exprVal;
+  }
+
+
+
+    // --- PRINT_NEWLINE ---
+    if (strcmp(node->type, "PRINT_NEWLINE") == 0) {
+      Constant *newlineStr = ConstantDataArray::getString(Context, "\n", true);
+      GlobalVariable *nlVar = TheModule->getNamedGlobal(".str_newline");
+      if (!nlVar) {
+        nlVar = new GlobalVariable(*TheModule, newlineStr->getType(), true,
+        GlobalValue::PrivateLinkage, newlineStr, ".str_newline");
+      }
+      Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      std::vector<Constant*> indices = {zero, zero};
+      Constant *nlPtr = ConstantExpr::getGetElementPtr(nlVar->getValueType(), nlVar, indices);
+      Builder.CreateCall(getPrintfFunction(), {nlPtr});
+      return ConstantInt::get(Type::getInt32Ty(Context), 0);
+    }
   
   return nullptr;
 }
@@ -1145,6 +1535,13 @@ int main() {
   BasicBlock *curBB = Builder.GetInsertBlock();
   if (!curBB->getTerminator())
     Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
+  
+  // Ensure main is not empty.
+  if (mainFunc->empty()) {
+    BasicBlock *entryBB = BasicBlock::Create(Context, "entry", mainFunc);
+    Builder.SetInsertPoint(entryBB);
+    Builder.CreateRet(ConstantInt::get(Type::getInt32Ty(Context), 0));
+  }
   
   std::string error;
   raw_string_ostream errorStream(error);
