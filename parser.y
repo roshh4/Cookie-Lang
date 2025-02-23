@@ -66,7 +66,6 @@ global_declaration:
     | statement { $$ = $1; }
     ;
 
-
 /* --- Function Definitions --- */
 function_definition:
     FUN IDENTIFIER LPAREN parameter_list_opt RPAREN LBRACE function_body RBRACE
