@@ -1,25 +1,30 @@
 {
   "scopeName": "source.langli",
+  "fileTypes": ["li"],
   "patterns": [
     {
       "name": "keyword.control.langli",
-      "match": "\\b(if|else|while|for|return|loop)\\b|loop\\s+until"
-    },
-    {
-      "name": "keyword.operator.comparison.langli",
-      "match": "(lesser\\s+than\\s+equals|greater\\s+than\\s+equals|lesser\\s+than|greater\\s+than)"
-    },
-    {
-      "name": "keyword.operator.logical.langli",
-      "match": "\\b(and|or)\\b|(\\&\\&|\\|\\|)"
-    },
-    {
-      "name": "support.function.langli",
-      "match": "\\b(print|input)\\b"
+      "match": "\\b(if|else|while|until|loop|switch|case:|default|break|return|fun)\\b"
     },
     {
       "name": "storage.type.langli",
-      "match": "\\b(int|float|bool|char|str)\\b"
+      "match": "\\b(int|float|bool|char|str|var|type|inline)\\b"
+    },
+    {
+      "name": "support.function.builtin.langli",
+      "match": "\\b(print|input)\\b"
+    },
+    {
+      "name": "keyword.operator.comparison.langli",
+      "match": "(<=|>=|<|>|==|!=)|\\b(lesser\\s+than(\\s+equals)?|greater\\s+than(\\s+equals)?)\\b"
+    },
+    {
+      "name": "keyword.operator.logical.langli",
+      "match": "\\b(and|or)\\b|(&&|\\|\\|)"
+    },
+    {
+      "name": "keyword.operator.arithmetic.langli",
+      "match": "[+\\-*/=]"
     },
     {
       "name": "constant.numeric.langli",
@@ -29,6 +34,17 @@
       "name": "string.quoted.double.langli",
       "begin": "\"",
       "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.langli",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.quoted.single.langli",
+      "begin": "'",
+      "end": "'",
       "patterns": [
         {
           "name": "constant.character.escape.langli",
