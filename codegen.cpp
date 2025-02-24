@@ -153,7 +153,6 @@ Function* getReadStringFunction() {
   return readStrFunc;
 }
 
-
 // --- New branch for INPUT_EXPR ---
 // This branch supports input statements with expressions (such as input(arr[4]);)
 // without changing any of the old lines.
@@ -218,7 +217,6 @@ Value *generateInputExpr(ASTNode *node, Function* currentFunction) {
   }
 }
 
- 
 // --- Helper Passes for IR Generation ---
 // Generate IR for all function definitions.
 void generateFunctions(ASTNode* node) {
@@ -416,6 +414,24 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
   // --- New branch for INPUT_EXPR ---
   if (strcmp(node->type, "INPUT_EXPR") == 0) {
     return generateInputExpr(node, currentFunction);
+  }
+  
+  // --- ARRAY_ACCESS --- (New functionality)
+  if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
+    std::string varName = node->value;
+    Value *varPtr = NamedValues[varName];
+    if (!varPtr)
+         report_fatal_error(Twine("Error: Unknown array '") + varName + "'");
+    Value *indexVal = generateIR(node->left, currentFunction);
+    indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+    indices.push_back(indexVal);
+    AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
+    if (!AI)
+         report_fatal_error("ARRAY_ACCESS: Variable is not an alloca!");
+    Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
+    return Builder.CreateLoad(AI->getAllocatedType()->getArrayElementType(), elemPtr, "load_array_elem");
   }
   
   // --- Identifier lookup ---
@@ -673,11 +689,11 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       GlobalVariable *nlVar = TheModule->getNamedGlobal(".str_newline");
       if (!nlVar) {
         nlVar = new GlobalVariable(*TheModule, newlineStr->getType(), true,
-                                   GlobalValue::PrivateLinkage, newlineStr, ".str_newline");
+        GlobalValue::PrivateLinkage, newlineStr, ".str_newline");
       }
       Constant *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
-      std::vector<Constant*> nlIndices = {zero, zero};
-      Constant *nlPtr = ConstantExpr::getGetElementPtr(nlVar->getValueType(), nlVar, nlIndices);
+      std::vector<Constant*> indices = {zero, zero};
+      Constant *nlPtr = ConstantExpr::getGetElementPtr(nlVar->getValueType(), nlVar, indices);
       Builder.CreateCall(getPrintfFunction(), {nlPtr});
       return ConstantInt::get(Type::getInt32Ty(Context), 0);
     }
@@ -910,28 +926,7 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return varPtr;
   }
   
-  // --- Array Assignment ---
-  if (strcmp(node->type, "ARRAY_ASSIGN") == 0) {
-    std::string varName = node->value;
-    Value *varPtr = NamedValues[varName];
-    if (!varPtr) {
-      report_fatal_error(Twine("Error: Undeclared array '") + varName + "'");
-    }
-    Value *indexVal = generateIR(node->left, currentFunction);
-    indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
-    std::vector<Value*> indices;
-    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
-    indices.push_back(indexVal);
-    AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
-    if (!AI)
-      report_fatal_error("Array variable is not an alloca!");
-    Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
-    Value *newVal = generateIR(node->right, currentFunction);
-    Builder.CreateStore(newVal, elemPtr);
-    return newVal;
-  }
-
-  // --- Array Access ---
+  // --- Array Declarations for FLOAT ---
   if (strcmp(node->type, "DECL_ARRAY_INIT_FLOAT") == 0) {
     std::string varName = node->value;
     int count = 0;
@@ -1468,8 +1463,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateCall(getPrintfFunction(), {fmtStrPtr, exprVal});
     return exprVal;
   }
-
-
 
     // --- PRINT_NEWLINE ---
     if (strcmp(node->type, "PRINT_NEWLINE") == 0) {

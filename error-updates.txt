@@ -27,7 +27,11 @@ int b = 3 + a;
 print(b);
 prints a garbage value
 
-bool b = false/true not working;
+int n = 5;
+int arr[n];
+
+print(arr[1]);
+int n = arr[3];
 
 -------------------------------------------
 text highlight:
