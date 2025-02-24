@@ -5,7 +5,7 @@
 	  "strict": true,
 	  "module": "commonjs",
 	  "target": "ES6",
-	  "lib": ["ES6"],
+	  "lib": ["ES6", "dom"],
 	  "rootDir": "src"
 	},
 	"exclude": [
