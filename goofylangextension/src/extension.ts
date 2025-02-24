@@ -5,11 +5,13 @@ let goofyHighlightsEnabled = true;
 export function activate(context: vscode.ExtensionContext) {
     console.log('Lang.li extension is active!');
 
-    // Always force lines recognized as comment.line.langli to be a dull color (#666666).
+    // Force lines recognized as comment.line.langli to be dull gray (#666666).
     const commentRule = {
         "scope": "comment.line.langli",
         "settings": { "foreground": "#666666" }
     };
+
+    // Apply comment rule initially
     const editorConfig = vscode.workspace.getConfiguration('editor');
     editorConfig.update('tokenColorCustomizations', {
         "textMateRules": [ commentRule ]
@@ -19,8 +21,9 @@ export function activate(context: vscode.ExtensionContext) {
     let toggleCmd = vscode.commands.registerCommand('langli.toggleGoofyHighlights', () => {
         goofyHighlightsEnabled = !goofyHighlightsEnabled;
         const config = vscode.workspace.getConfiguration('editor');
+
         if (!goofyHighlightsEnabled) {
-            // Override everything else in source.langli to neutral color, but keep comment lines dull.
+            // Override everything else in source.langli to neutral color, keep comment lines dull
             config.update('tokenColorCustomizations', {
                 "textMateRules": [
                     {
@@ -33,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage("Goofy highlights off");
             });
         } else {
-            // Remove the override for other tokens; keep comment lines dull.
+            // Remove the override for other tokens, keep comment lines dull
             config.update('tokenColorCustomizations', {
                 "textMateRules": [ commentRule ]
             }, vscode.ConfigurationTarget.Global).then(() => {
@@ -45,7 +48,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Command for "Who's Dorito"
     let doritoCmd = vscode.commands.registerCommand('Goofy.dorito', () => {
-        // Show the message "alpha's Dorito not ros's"
         vscode.window.showInformationMessage("alpha's Dorito not ros's");
     });
     context.subscriptions.push(doritoCmd);
@@ -75,13 +77,13 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
         return;
     }
 
-    let diagnostics: vscode.Diagnostic[] = [];
     const lines: string[] = document.getText().split(/\r?\n/);
+    let diagnostics: vscode.Diagnostic[] = [];
 
     lines.forEach((line: string, i: number) => {
         const trimmed = line.trim();
-        // Skip empty lines, lines starting with "//", lines starting with "comment:",
-        // and lines ending with "{" or "}" so they don't require semicolons.
+        // Skip empty lines, lines that start with "//" or "comment:",
+        // and lines ending with "{" or "}" => no semicolon needed
         if (
             trimmed === "" ||
             trimmed.startsWith("//") ||
@@ -92,7 +94,7 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
             return;
         }
 
-        // If line doesn't end with semicolon, create a diagnostic.
+        // If line doesn't end with semicolon => error
         if (!trimmed.endsWith(";")) {
             const range = new vscode.Range(i, 0, i, line.length);
             const diagnostic = new vscode.Diagnostic(

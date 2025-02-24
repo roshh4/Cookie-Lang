@@ -54,7 +54,8 @@
     },
     {
       "name": "comment.line.langli",
-      "match": "^(\\s*(//|comment:)).*$"
+      "begin": "^\\s*(?://|comment:)",
+      "end": "$"
     }
   ]
 }
