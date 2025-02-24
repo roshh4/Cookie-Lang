@@ -1,9 +1,9 @@
 {
   "name": "langli-extension",
-  "displayName": "Lang.li Extension",
-  "description": "VS Code extension for the Lang.li programming language with syntax highlighting, error detection, and toggle commands.",
-  "version": "1.0.0",
-  "publisher": "your-name",
+  "displayName": "Goofy Lang.li Extension",
+  "description": "VS Code extension for the Lang.li programming language with advanced syntax highlighting, comment handling, error detection, and toggle commands.",
+  "version": "2.0.0",
+  "publisher": "alpha",
   "repository": {
     "type": "git",
     "url": "https://github.com/your-name/langli-extension.git"
@@ -28,7 +28,7 @@
       },
       {
         "command": "Goofy.dorito",
-        "title": "alpha's Dorito not ros's"
+        "title": "Who's Dorito"
       }
     ],
     "languages": [

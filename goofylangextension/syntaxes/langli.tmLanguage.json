@@ -53,8 +53,8 @@
       ]
     },
     {
-      "name": "comment.line.double-slash.langli",
-      "match": "//.*$"
+      "name": "comment.line.langli",
+      "match": "^(\\s*(//|comment:)).*$"
     }
   ]
 }
