@@ -1,14 +1,23 @@
 {
   "name": "langli-extension",
-  "displayName": "Lang.li Extension",
-  "description": "VS Code extension for the Lang.li programming language with advanced highlights and toggle command",
-  "version": "0.0.1",
+  "displayName": " Goofy Lang.li Extension",
+  "description": "VS Code extension for the Lang.li programming language with advanced syntax highlighting, error detection, and toggle commands.",
+  "version": "3.0.0",
   "publisher": "your-name",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-name/langli-extension.git"
+  },
   "engines": {
     "vscode": "^1.97.0"
   },
   "categories": [
     "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:langli",
+    "onCommand:langli.toggleGoofyHighlights",
+    "onCommand:Goofy.dorito"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -16,18 +25,17 @@
       {
         "command": "langli.toggleGoofyHighlights",
         "title": "Toggle Goofy Highlights"
+      },
+      {
+        "command": "Goofy.dorito",
+        "title": "Who's Dorito"
       }
     ],
     "languages": [
       {
         "id": "langli",
-        "aliases": [
-          "Lang.li",
-          "langli"
-        ],
-        "extensions": [
-          ".li"
-        ],
+        "aliases": ["Lang.li", "langli"],
+        "extensions": [".li"],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -42,20 +50,11 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile",
-    "test": "echo \"No tests yet\""
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/alphastar-avi/Goofy-Compiler"
+    "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/node": "^20.x",
     "@types/vscode": "^1.97.0",
+    "@types/node": "^20.x",
     "typescript": "^5.1.6"
-  },
-  "dependencies": {
-    "langli-extension": "file:"
   }
 }
