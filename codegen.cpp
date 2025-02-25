@@ -1178,7 +1178,9 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Value *typeStr = Builder.CreateGlobalStringPtr(typeName, "typeStr");
     return typeStr;
   }
-  
+
+
+
   // --- Specific Declarations ---
   if (strcmp(node->type, "DECL_INT") == 0) {
     std::string varName = node->value;
