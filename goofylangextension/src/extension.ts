@@ -5,40 +5,46 @@ let goofyHighlightsEnabled = true;
 export function activate(context: vscode.ExtensionContext) {
     console.log('Lang.li extension is active!');
 
-    // Force lines recognized as comment.line.langli to be dull gray (#666666).
-    const commentRule = {
-        "scope": "comment.line.langli",
-        "settings": { "foreground": "#666666" }
-    };
+    // Define rules to force comments (and the comment punctuation) to dull gray.
+    const commentRules = [
+        {
+            "scope": "comment.line.langli",
+            "settings": { "foreground": "#666666" }
+        },
+        {
+            "scope": "punctuation.definition.comment.langli",
+            "settings": { "foreground": "#666666" }
+        }
+    ];
 
-    // Apply comment rule initially
+    // Apply comment rules initially.
     const editorConfig = vscode.workspace.getConfiguration('editor');
     editorConfig.update('tokenColorCustomizations', {
-        "textMateRules": [ commentRule ]
+        "textMateRules": commentRules
     }, vscode.ConfigurationTarget.Global);
 
-    // Toggle command for Goofy highlights
+    // Toggle command for Goofy highlights.
     let toggleCmd = vscode.commands.registerCommand('langli.toggleGoofyHighlights', () => {
         goofyHighlightsEnabled = !goofyHighlightsEnabled;
         const config = vscode.workspace.getConfiguration('editor');
 
         if (!goofyHighlightsEnabled) {
-            // Override everything else in source.langli to neutral color, keep comment lines dull
+            // Override all tokens in source.langli to neutral color while preserving comment colors.
             config.update('tokenColorCustomizations', {
                 "textMateRules": [
                     {
                         "scope": "source.langli",
                         "settings": { "foreground": "#888888" }
                     },
-                    commentRule
+                    ...commentRules
                 ]
             }, vscode.ConfigurationTarget.Global).then(() => {
                 vscode.window.showInformationMessage("Goofy highlights off");
             });
         } else {
-            // Remove the override for other tokens, keep comment lines dull
+            // Restore normal highlighting except for comments.
             config.update('tokenColorCustomizations', {
-                "textMateRules": [ commentRule ]
+                "textMateRules": commentRules
             }, vscode.ConfigurationTarget.Global).then(() => {
                 vscode.window.showInformationMessage("Goofy highlights on");
             });
@@ -46,13 +52,13 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(toggleCmd);
 
-    // Command for "Who's Dorito"
+    // Command for "Who's Dorito" that displays "alpha's Dorito not ros's"
     let doritoCmd = vscode.commands.registerCommand('Goofy.dorito', () => {
         vscode.window.showInformationMessage("alpha's Dorito not ros's");
     });
     context.subscriptions.push(doritoCmd);
 
-    // Diagnostics for missing semicolons
+    // Simple diagnostics: Check for missing semicolons.
     let diagnosticCollection = vscode.languages.createDiagnosticCollection("langliDiagnostics");
     context.subscriptions.push(diagnosticCollection);
 
@@ -82,8 +88,7 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
 
     lines.forEach((line: string, i: number) => {
         const trimmed = line.trim();
-        // Skip empty lines, lines that start with "//" or "comment:",
-        // and lines ending with "{" or "}" => no semicolon needed
+        // Skip empty lines, lines starting with "//" or "comment:", and block delimiters.
         if (
             trimmed === "" ||
             trimmed.startsWith("//") ||
@@ -94,7 +99,6 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
             return;
         }
 
-        // If line doesn't end with semicolon => error
         if (!trimmed.endsWith(";")) {
             const range = new vscode.Range(i, 0, i, line.length);
             const diagnostic = new vscode.Diagnostic(

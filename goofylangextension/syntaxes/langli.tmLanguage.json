@@ -3,6 +3,11 @@
   "fileTypes": ["li"],
   "patterns": [
     {
+      "name": "comment.line.langli",
+      "begin": "^(?:\\s*(?://|comment:))",
+      "end": "$"
+    },
+    {
       "name": "keyword.control.langli",
       "match": "\\b(if|else|while|until|loop|switch|case:|default|break|return|fun)\\b"
     },
@@ -51,11 +56,6 @@
           "match": "\\\\."
         }
       ]
-    },
-    {
-      "name": "comment.line.langli",
-      "begin": "^\\s*(?://|comment:)",
-      "end": "$"
     }
   ]
 }
