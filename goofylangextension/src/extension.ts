@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
         goofyHighlightsEnabled = !goofyHighlightsEnabled;
         const config = vscode.workspace.getConfiguration('editor');
         if (!goofyHighlightsEnabled) {
-            // Override all tokens in source.langli to black (#000000)
+            // Override all tokens in source.langli to black (#000000), preserving comment colors
             config.update('tokenColorCustomizations', {
                 "textMateRules": [
                     {
@@ -40,7 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage("Goofy highlights off (reload window if not visible)");
             });
         } else {
-            // Remove override for non-comment tokens; keep only comment rules
+            // Restore highlighting by removing override (keeping comment rules)
             config.update('tokenColorCustomizations', {
                 "textMateRules": commentRules
             }, vscode.ConfigurationTarget.Global).then(() => {
@@ -56,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(doritoCmd);
 
-    // Simple diagnostics: Check for missing semicolons
+    // Diagnostics: Check for missing semicolons
     let diagnosticCollection = vscode.languages.createDiagnosticCollection("langliDiagnostics");
     context.subscriptions.push(diagnosticCollection);
 
@@ -73,6 +73,46 @@ export function activate(context: vscode.ExtensionContext) {
             updateDiagnostics(doc, diagnosticCollection);
         })
     );
+
+    // Auto-completion (IntelliSense) provider for Lang.li
+    let completionProvider = vscode.languages.registerCompletionItemProvider(
+        'langli',
+        {
+            provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
+                let completions: vscode.CompletionItem[] = [];
+
+                // Keywords
+                const keywords = ['if', 'else', 'while', 'until', 'loop', 'switch', 'case:', 'default', 'break', 'return', 'fun'];
+                for (const kw of keywords) {
+                    let item = new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword);
+                    item.detail = "Keyword";
+                    completions.push(item);
+                }
+
+                // Types
+                const types = ['int', 'float', 'bool', 'char', 'str', 'var', 'type', 'inline'];
+                for (const t of types) {
+                    let item = new vscode.CompletionItem(t, vscode.CompletionItemKind.TypeParameter);
+                    item.detail = "Type";
+                    completions.push(item);
+                }
+
+                // Built-in functions
+                const builtins = ['print', 'input'];
+                for (const func of builtins) {
+                    let item = new vscode.CompletionItem(func, vscode.CompletionItemKind.Function);
+                    item.detail = "Built-in function";
+                    // Insert snippet: e.g., print($1);
+                    item.insertText = new vscode.SnippetString(func + "($1);");
+                    completions.push(item);
+                }
+
+                return completions;
+            }
+        },
+        '.' // Trigger on period; you can add more trigger characters as needed.
+    );
+    context.subscriptions.push(completionProvider);
 }
 
 function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
@@ -86,7 +126,7 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
 
     lines.forEach((line: string, i: number) => {
         const trimmed = line.trim();
-        // Skip empty lines, lines starting with "//" or "comment:", and lines ending with "{" or "}"
+        // Skip empty lines, lines starting with "//" or "comment:" and lines ending with "{" or "}"
         if (
             trimmed === "" ||
             trimmed.startsWith("//") ||
@@ -111,3 +151,4 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
 }
 
 export function deactivate() {}
+``

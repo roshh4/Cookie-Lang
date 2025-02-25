@@ -2,7 +2,7 @@
   "name": "langli-extension",
   "displayName": "Goofy Extension",
   "description": "VS Code extension for the Lang.li programming language with advanced syntax highlighting, error detection, and toggle commands.",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "publisher": "Dorito",
   "repository": {
     "type": "git",
@@ -47,6 +47,12 @@
       }
     ]
   },
+  "snippets": [
+    {
+      "language": "langli",
+      "path": "./snippets/langli.json"
+    }
+  ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",

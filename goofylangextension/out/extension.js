@@ -26,7 +26,7 @@ function activate(context) {
         goofyHighlightsEnabled = !goofyHighlightsEnabled;
         const config = vscode.workspace.getConfiguration('editor');
         if (!goofyHighlightsEnabled) {
-            // Override all tokens in source.langli to black (#000000)
+            // Override all tokens in source.langli to black (#000000), preserving comment colors
             config.update('tokenColorCustomizations', {
                 "textMateRules": [
                     {
@@ -40,7 +40,7 @@ function activate(context) {
             });
         }
         else {
-            // Remove override for non-comment tokens; keep only comment rules
+            // Restore highlighting by removing override (keeping comment rules)
             config.update('tokenColorCustomizations', {
                 "textMateRules": commentRules
             }, vscode.ConfigurationTarget.Global).then(() => {
@@ -54,7 +54,7 @@ function activate(context) {
         vscode.window.showInformationMessage("alpha's Dorito not ros's");
     });
     context.subscriptions.push(doritoCmd);
-    // Simple diagnostics: Check for missing semicolons
+    // Diagnostics: Check for missing semicolons
     let diagnosticCollection = vscode.languages.createDiagnosticCollection("langliDiagnostics");
     context.subscriptions.push(diagnosticCollection);
     if (vscode.window.activeTextEditor) {
@@ -66,6 +66,38 @@ function activate(context) {
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((doc) => {
         updateDiagnostics(doc, diagnosticCollection);
     }));
+    // Auto-completion (IntelliSense) provider for Lang.li
+    let completionProvider = vscode.languages.registerCompletionItemProvider('langli', {
+        provideCompletionItems(document, position) {
+            let completions = [];
+            // Keywords
+            const keywords = ['if', 'else', 'while', 'until', 'loop', 'switch', 'case:', 'default', 'break', 'return', 'fun'];
+            for (const kw of keywords) {
+                let item = new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword);
+                item.detail = "Keyword";
+                completions.push(item);
+            }
+            // Types
+            const types = ['int', 'float', 'bool', 'char', 'str', 'var', 'type', 'inline'];
+            for (const t of types) {
+                let item = new vscode.CompletionItem(t, vscode.CompletionItemKind.TypeParameter);
+                item.detail = "Type";
+                completions.push(item);
+            }
+            // Built-in functions
+            const builtins = ['print', 'input'];
+            for (const func of builtins) {
+                let item = new vscode.CompletionItem(func, vscode.CompletionItemKind.Function);
+                item.detail = "Built-in function";
+                // Insert snippet: e.g., print($1);
+                item.insertText = new vscode.SnippetString(func + "($1);");
+                completions.push(item);
+            }
+            return completions;
+        }
+    }, '.' // Trigger on period; you can add more trigger characters as needed.
+    );
+    context.subscriptions.push(completionProvider);
 }
 function updateDiagnostics(document, collection) {
     if (document.languageId !== 'langli') {
@@ -76,7 +108,7 @@ function updateDiagnostics(document, collection) {
     let diagnostics = [];
     lines.forEach((line, i) => {
         const trimmed = line.trim();
-        // Skip empty lines, lines starting with "//" or "comment:", and lines ending with "{" or "}"
+        // Skip empty lines, lines starting with "//" or "comment:" and lines ending with "{" or "}"
         if (trimmed === "" ||
             trimmed.startsWith("//") ||
             trimmed.startsWith("comment:") ||
@@ -93,4 +125,5 @@ function updateDiagnostics(document, collection) {
     collection.set(document.uri, diagnostics);
 }
 function deactivate() { }
+``;
 //# sourceMappingURL=extension.js.map

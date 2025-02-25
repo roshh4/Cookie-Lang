@@ -1,3 +1,7 @@
+To Build and complie:
+npm install   
+npm run compile 
+
 To Package:
 
 vsce package
