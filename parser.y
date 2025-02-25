@@ -175,8 +175,7 @@ statement:
     | VAR IDENTIFIER IS expression SEMICOLON
           { $$ = createASTNode("VAR_DECL", $2, $4, NULL); }
     | IDENTIFIER LBRACKET expression RBRACKET ASSIGN expression SEMICOLON { $$ = createASTNode("ARRAY_ASSIGN", $1, $3, $6); }
-    | TYPE LPAREN expression RPAREN
-          { $$ = createASTNode("TYPE", NULL, $3, NULL); }
+
       | IDENTIFIER ASSIGN expression SEMICOLON
             { $$ = createASTNode("REASSIGN", $1, $3, NULL); }
       | PRINT LPAREN expression RPAREN SEMICOLON
@@ -304,6 +303,7 @@ primary:
     | IDENTIFIER LBRACKET expression RBRACKET { $$ = createASTNode("ARRAY_ACCESS", $1, $3, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
+      | TYPE LPAREN expression RPAREN{ $$ = createASTNode("TYPE", NULL, $3, NULL); }
     ;
 
 %%
