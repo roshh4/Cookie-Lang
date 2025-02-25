@@ -31,6 +31,7 @@ ASTNode *root;  // Global AST root.
 %token SWITCH CASE DEFAULT BREAK
 %token LBRACKET RBRACKET
 %token INLINE
+%token SIZE
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -194,16 +195,17 @@ statement:
           { $$ = createASTNode("DECL_CHAR", $2, NULL, NULL); }
     | STRING IDENTIFIER SEMICOLON
           { $$ = createASTNode("DECL_STRING", $2, NULL, NULL); }
-    /* Array declarations as statements (if not global) */
+    /* Array declarations without initializer (supporting variable sizes) */
     | INT IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY", $2, $4, NULL); }
-    | INT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT", $2, $7, NULL); }
     | FLOAT IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_FLOAT", $2, $4, NULL); }
-    | FLOAT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_FLOAT", $2, $7, NULL); }
     | BOOL IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_BOOL", $2, $4, NULL); }
-    | BOOL IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_BOOL", $2, $7, NULL); }
     | CHAR IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_CHAR", $2, $4, NULL); }
-    | CHAR IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_CHAR", $2, $7, NULL); }
     | STRING IDENTIFIER LBRACKET expression RBRACKET SEMICOLON { $$ = createASTNode("DECL_ARRAY_STRING", $2, $4, NULL); }
+    /* Array declarations with initializer remain unchanged */
+    | INT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT", $2, $7, NULL); }
+    | FLOAT IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_FLOAT", $2, $7, NULL); }
+    | BOOL IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_BOOL", $2, $7, NULL); }
+    | CHAR IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_CHAR", $2, $7, NULL); }
     | STRING IDENTIFIER LBRACKET RBRACKET ASSIGN LBRACE element_list RBRACE SEMICOLON { $$ = createASTNode("DECL_ARRAY_INIT_STRING", $2, $7, NULL); }
     | RETURN LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("RETURN", NULL, $3, NULL); }
@@ -247,6 +249,7 @@ default_clause:
     | DEFAULT ':' statements { $$ = createASTNode("DEFAULT", NULL, $3, NULL); }
     ;
 
+/* --- Expressions --- */
 expression:
     logical_or_expression { $$ = $1; }
     ;
@@ -290,6 +293,7 @@ multiplicative_expression:
 primary:
     NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
     | MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
+    | SIZE LPAREN expression RPAREN { $$ = createASTNode("SIZE", NULL, $3, NULL); }
     | NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
     | FLOAT_NUMBER { $$ = createASTNode("FLOAT", $1, NULL, NULL); }
     | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }

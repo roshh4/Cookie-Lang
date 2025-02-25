@@ -6,16 +6,16 @@ variables
 
 ---------------------------------------------
 Next update 
-1. iterator 
-3. array
+1. string traversal using - 
 ---------------------------------------------
 
 ---------------------------------
 1. bool c;
-input(c);
 print(c);
+str x;
+print(x);
 
-c prints false need to rectify 
+c prints false and x prints null need to rectify - for all datatypes
 
 if no code present in lang.li , it shows 
 Error: syntax error
@@ -30,8 +30,7 @@ prints a garbage value
 int n = 5;
 int arr[n];
 
-print(arr[1]);
-int n = arr[3];
+string traversal
 
 -------------------------------------------
 text highlight:
