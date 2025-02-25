@@ -11,3 +11,52 @@ print("heello");
 loop j : arr {
     print(j);   
 }
+int arr[] = {1000,2,4,1,5};
+int n = arr[1];
+print(arr[1]);
+input(arr[4]);
+loop i : arr{
+    print(i);
+}
+
+inline("hello ");
+inline("rosh");
+print();
+print("ROSH IS PEAK AVINASH IS GAY");
+
+bool b[] = {true, false, true, false, true};
+float f[] = {1.3, 2.3, 3.3, 4.3, 5.3};
+f[1] = 4.4;
+b[1] = false;
+
+char c[] = {'a', 'b', 'c', 'd', 'e'};
+str s[] = {"a", "b", "c", "d", "e"};
+c[3] = 'a';
+s[1] = "rosh";
+int i = 3;
+loop i : arr{
+    print(i);
+}
+loop i : arr{
+    print(i);
+}
+
+print("HII");
+int j = 3;
+loop j : 5{
+    print(j);
+}
+
+
+
+int nums[3];
+nums[1] = 1;
+nums[2] = 2;
+nums[3] = 3;
+// print(nums[1]);
+
+float f = 1.3;
+
+bool b = true;
+
+print("hello");
