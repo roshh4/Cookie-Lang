@@ -351,56 +351,137 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
   
-  // --- ARRAY_ITERATOR --- (New support for array iteration)
-  if (strcmp(node->type, "ARRAY_ITERATOR") == 0) {
-    std::string loopVarName = node->value;
-    std::string arrayName = node->left->value;
-    Value *arrPtr = NamedValues[arrayName];
-    if (!arrPtr) {
-      report_fatal_error(Twine("Error: Undefined array '") + arrayName + "'");
+// --- ARRAY_ITERATOR --- (Updated to support both arrays and strings)
+if (strcmp(node->type, "ARRAY_ITERATOR") == 0) {
+  std::string loopVarName = node->value;
+  std::string varName = node->left->value;
+  Value *varPtr = NamedValues[varName];
+  if (!varPtr)
+    report_fatal_error(Twine("Error: Undefined variable '") + varName + "'");
+
+  // Check if varPtr is an alloca (most declarations use alloca)
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(varPtr)) {
+    Type *allocatedType = AI->getAllocatedType();
+    // If it's an array type, use the existing fixed-size array iteration.
+    if (allocatedType->isArrayTy()) {
+      ArrayType *arrType = dyn_cast<ArrayType>(allocatedType);
+      unsigned arraySize = arrType->getNumElements();
+      Function *curFunc = currentFunction;
+      AllocaInst *indexAlloca = CreateEntryBlockAlloca(curFunc, "array_iter_index", Type::getInt32Ty(Context));
+      // Start at 1 since language indexing is 1-based.
+      Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 1), indexAlloca);
+      
+      BasicBlock *condBB = BasicBlock::Create(Context, "array_iter.cond", curFunc);
+      BasicBlock *bodyBB = BasicBlock::Create(Context, "array_iter.body", curFunc);
+      BasicBlock *afterBB = BasicBlock::Create(Context, "array_iter.after", curFunc);
+      
+      Builder.CreateBr(condBB);
+      Builder.SetInsertPoint(condBB);
+      Value *curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+      // For arrays, compare with arraySize (1-based indexing: loop from 1 to arraySize)
+      Value *cond = Builder.CreateICmpSLE(curIndex, ConstantInt::get(Type::getInt32Ty(Context), arraySize), "array_iter_cond");
+      Builder.CreateCondBr(cond, bodyBB, afterBB);
+      
+      Builder.SetInsertPoint(bodyBB);
+      std::vector<Value*> indices;
+      // Adjust index: subtract 1 to convert 1-based index to LLVM's 0-based index.
+      Value *adjustedIndex = Builder.CreateSub(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "adjusted_index");
+      indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+      indices.push_back(adjustedIndex);
+      Value *elemPtr = Builder.CreateGEP(arrType, AI, indices, "array_elem_ptr");
+      Value *elemVal = Builder.CreateLoad(arrType->getArrayElementType(), elemPtr, "array_elem");
+      
+      Value *loopVarAlloca = NamedValues[loopVarName];
+      if (!loopVarAlloca) {
+        loopVarAlloca = CreateEntryBlockAlloca(curFunc, loopVarName, elemVal->getType());
+        NamedValues[loopVarName] = loopVarAlloca;
+      }
+      Builder.CreateStore(elemVal, loopVarAlloca);
+      
+      // Generate the loop body (e.g. print(c);)
+      generateIR(node->right, curFunc);
+      
+      curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+      Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
+      Builder.CreateStore(nextIndex, indexAlloca);
+      Builder.CreateBr(condBB);
+      
+      Builder.SetInsertPoint(afterBB);
+      return ConstantInt::get(Type::getInt32Ty(Context), 0);
     }
-    AllocaInst *arrAlloca = dyn_cast<AllocaInst>(arrPtr);
-    if (!arrAlloca) {
-      report_fatal_error("Error: Array variable is not an alloca in ARRAY_ITERATOR");
+    // Otherwise, if the alloca holds a pointer, assume it's a string.
+    else if (allocatedType->isPointerTy()) {
+      // Load the string pointer stored in the alloca.
+      Value *strPtr = Builder.CreateLoad(allocatedType, varPtr, "str_val");
+      Function *curFunc = currentFunction;
+      AllocaInst *indexAlloca = CreateEntryBlockAlloca(curFunc, "string_iter_index", Type::getInt32Ty(Context));
+      // Start at 1 (language is 1-based).
+      Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 1), indexAlloca);
+      
+      BasicBlock *condBB = BasicBlock::Create(Context, "string_iter.cond", curFunc);
+      BasicBlock *bodyBB = BasicBlock::Create(Context, "string_iter.body", curFunc);
+      BasicBlock *afterBB = BasicBlock::Create(Context, "string_iter.after", curFunc);
+      
+      Builder.CreateBr(condBB);
+      Builder.SetInsertPoint(condBB);
+      Value *curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+      // Adjust for 1-based indexing.
+      Value *adjustedIndex = Builder.CreateSub(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "adjusted_index");
+      Value *charPtr = Builder.CreateGEP(Type::getInt8Ty(Context), strPtr, adjustedIndex, "char_ptr");
+      Value *charVal = Builder.CreateLoad(Type::getInt8Ty(Context), charPtr, "char_val");
+      // Continue loop while the character is not null.
+      Value *cond = Builder.CreateICmpNE(charVal, ConstantInt::get(Type::getInt8Ty(Context), 0), "string_iter_cond");
+      Builder.CreateCondBr(cond, bodyBB, afterBB);
+      
+      Builder.SetInsertPoint(bodyBB);
+      Value *loopVarAlloca = NamedValues[loopVarName];
+      if (!loopVarAlloca) {
+        loopVarAlloca = CreateEntryBlockAlloca(curFunc, loopVarName, Type::getInt8Ty(Context));
+        NamedValues[loopVarName] = loopVarAlloca;
+      }
+      Builder.CreateStore(charVal, loopVarAlloca);
+      generateIR(node->right, curFunc);
+      
+      curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
+      Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
+      Builder.CreateStore(nextIndex, indexAlloca);
+      Builder.CreateBr(condBB);
+      
+      Builder.SetInsertPoint(afterBB);
+      return ConstantInt::get(Type::getInt32Ty(Context), 0);
     }
-    ArrayType *arrType = dyn_cast<ArrayType>(arrAlloca->getAllocatedType());
-    if (!arrType) {
-      report_fatal_error("Error: Variable is not an array type in ARRAY_ITERATOR");
+    else {
+      report_fatal_error("ARRAY_ITERATOR: Unsupported alloca type for iteration");
     }
-    unsigned arraySize = arrType->getNumElements();
-    
+  }
+  // If varPtr is not an alloca but directly a pointer (e.g., a global string pointer)
+  else if (varPtr->getType()->isPointerTy()) {
+    Value *strPtr = varPtr;
     Function *curFunc = currentFunction;
-    AllocaInst *indexAlloca = CreateEntryBlockAlloca(curFunc, "array_iter_index", Type::getInt32Ty(Context));
-    Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 0), indexAlloca);
+    AllocaInst *indexAlloca = CreateEntryBlockAlloca(curFunc, "string_iter_index", Type::getInt32Ty(Context));
+    Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Context), 1), indexAlloca);
     
-    BasicBlock *condBB = BasicBlock::Create(Context, "array_iter.cond", curFunc);
-    BasicBlock *bodyBB = BasicBlock::Create(Context, "array_iter.body", curFunc);
-    BasicBlock *afterBB = BasicBlock::Create(Context, "array_iter.after", curFunc);
+    BasicBlock *condBB = BasicBlock::Create(Context, "string_iter.cond", curFunc);
+    BasicBlock *bodyBB = BasicBlock::Create(Context, "string_iter.body", curFunc);
+    BasicBlock *afterBB = BasicBlock::Create(Context, "string_iter.after", curFunc);
     
     Builder.CreateBr(condBB);
     Builder.SetInsertPoint(condBB);
     Value *curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
-    Value *iterCond = Builder.CreateICmpSLT(curIndex, ConstantInt::get(Type::getInt32Ty(Context), arraySize), "array_iter_cond");
-    Builder.CreateCondBr(iterCond, bodyBB, afterBB);
+    Value *adjustedIndex = Builder.CreateSub(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "adjusted_index");
+    Value *charPtr = Builder.CreateGEP(Type::getInt8Ty(Context), strPtr, adjustedIndex, "char_ptr");
+    Value *charVal = Builder.CreateLoad(Type::getInt8Ty(Context), charPtr, "char_val");
+    Value *cond = Builder.CreateICmpNE(charVal, ConstantInt::get(Type::getInt8Ty(Context), 0), "string_iter_cond");
+    Builder.CreateCondBr(cond, bodyBB, afterBB);
     
     Builder.SetInsertPoint(bodyBB);
-    std::vector<Value*> indices;
-    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
-    indices.push_back(curIndex);
-    Value *elemPtr = Builder.CreateGEP(arrType, arrAlloca, indices, "array_elem_ptr");
-    Value *elemVal = Builder.CreateLoad(arrType->getElementType(), elemPtr, "array_elem");
-    
-    Value *loopVarAlloca = NamedValues[loopVarName];
+    Value *loopVarAlloca = NamedValues[node->value];
     if (!loopVarAlloca) {
-      loopVarAlloca = CreateEntryBlockAlloca(curFunc, loopVarName, elemVal->getType());
-      NamedValues[loopVarName] = loopVarAlloca;
+      loopVarAlloca = CreateEntryBlockAlloca(curFunc, node->value, Type::getInt8Ty(Context));
+      NamedValues[node->value] = loopVarAlloca;
     }
-    Builder.CreateStore(elemVal, loopVarAlloca);
-    
-    // Generate the loop body (which typically calls inline(i) for each element).
+    Builder.CreateStore(charVal, loopVarAlloca);
     generateIR(node->right, curFunc);
-    
-    // Removed automatic newline insertion here so that inline(i) prints consecutively.
     
     curIndex = Builder.CreateLoad(Type::getInt32Ty(Context), indexAlloca, "cur_index");
     Value *nextIndex = Builder.CreateAdd(curIndex, ConstantInt::get(Type::getInt32Ty(Context), 1), "next_index");
@@ -409,7 +490,12 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     
     Builder.SetInsertPoint(afterBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
-  }   
+  }
+  else {
+    report_fatal_error("ARRAY_ITERATOR: Unsupported variable type for iteration");
+  }
+}
+
   
   // --- New branch for INPUT_EXPR ---
   if (strcmp(node->type, "INPUT_EXPR") == 0) {
