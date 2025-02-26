@@ -560,32 +560,6 @@ if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
         return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
       }
     }
-
-    // --- Type Conversion: CAST_INT ---
-// Converts an expression to an int (truncates float values)
-if (strcmp(node->type, "CAST_INT") == 0) {
-  Value *exprVal = generateIR(node->left, currentFunction);
-  if (exprVal->getType()->isFloatTy())
-    return Builder.CreateFPToSI(exprVal, Type::getInt32Ty(Context), "fp_to_int");
-  else if (exprVal->getType()->isIntegerTy(32))
-    return exprVal;
-  else
-    // Fallback: try converting via FPToSI (adjust as needed)
-    return Builder.CreateFPToSI(exprVal, Type::getInt32Ty(Context), "fp_to_int");
-}
-
-// --- Type Conversion: CAST_FLOAT ---
-// Converts an expression to a float
-if (strcmp(node->type, "CAST_FLOAT") == 0) {
-  Value *exprVal = generateIR(node->left, currentFunction);
-  if (exprVal->getType()->isIntegerTy(32))
-    return Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "int_to_fp");
-  else if (exprVal->getType()->isFloatTy())
-    return exprVal;
-  else
-    // Fallback: try converting via SIToFP (adjust as needed)
-    return Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "int_to_fp");
-}
   
   // --- Unary minus ---
   if (strcmp(node->type, "NEG") == 0) {
