@@ -1,3 +1,7 @@
+To build:
+docker build --no-cache -t cookie .
+
+---------------------
 To run the container:
 docker run --rm cookie
 
