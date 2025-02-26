@@ -57,6 +57,17 @@ Function* getPrintfFunction() {
   return printfFunc;
 }
 
+Function* getCharToStrFunction() {
+  Function *f = TheModule->getFunction("char_to_string");
+  if (!f) {
+    std::vector<Type*> args;
+    args.push_back(Type::getInt8Ty(Context));
+    FunctionType* ft = FunctionType::get(PointerType::get(Type::getInt8Ty(Context), 0), args, false);
+    f = Function::Create(ft, Function::ExternalLinkage, "char_to_string", TheModule);
+  }
+  return f;
+}
+
 // Global format strings.
 GlobalVariable* getFormatStringInt() {
   GlobalVariable *fmtStrVar = TheModule->getNamedGlobal(".str_int");
@@ -560,6 +571,45 @@ if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
         return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
       }
     }
+
+    // --- Type Conversion: CAST_INT ---
+// Converts an expression to an int (truncates float values)
+if (strcmp(node->type, "CAST_INT") == 0) {
+  Value *exprVal = generateIR(node->left, currentFunction);
+  if (exprVal->getType()->isFloatTy())
+    return Builder.CreateFPToSI(exprVal, Type::getInt32Ty(Context), "fp_to_int");
+  else if (exprVal->getType()->isIntegerTy(32))
+    return exprVal;
+  else
+    // Fallback: try converting via FPToSI (adjust as needed)
+    return Builder.CreateFPToSI(exprVal, Type::getInt32Ty(Context), "fp_to_int");
+}
+
+// --- Type Conversion: CAST_FLOAT ---
+// Converts an expression to a float
+if (strcmp(node->type, "CAST_FLOAT") == 0) {
+  Value *exprVal = generateIR(node->left, currentFunction);
+  if (exprVal->getType()->isIntegerTy(32))
+    return Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "int_to_fp");
+  else if (exprVal->getType()->isFloatTy())
+    return exprVal;
+  else
+    // Fallback: try converting via SIToFP (adjust as needed)
+    return Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "int_to_fp");
+}
+
+// --- Type Conversion: CAST_CHAR_TO_STRING ---
+// Converts a char to a string.
+if (strcmp(node->type, "CAST_CHAR_TO_STRING") == 0) {
+  Value *exprVal = generateIR(node->left, currentFunction);
+  // Check if the expression is of type char (i8)
+  if (exprVal->getType()->isIntegerTy(8)) {
+       Function *toStr = getCharToStrFunction();
+       return Builder.CreateCall(toStr, {exprVal}, "char_to_str");
+  } else {
+       report_fatal_error("Conversion Error: Expression is not of type char; cannot convert to string");
+  }
+}
   
   // --- Unary minus ---
   if (strcmp(node->type, "NEG") == 0) {

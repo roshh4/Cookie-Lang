@@ -26,40 +26,40 @@ print("ROSH IS PEAK AVINASH IS GAY");
 
 bool b[] = {true, false, true, false, true};
 float f[] = {1.3, 2.3, 3.3, 4.3, 5.3};
-// f[1] = 4.4;
-// b[1] = false;
+f[1] = 4.4;
+b[1] = false;
 
 char ch[] = {'a', 'b', 'c', 'd', 'e'};
 str st[] = {"a", "b", "c", "d", "e"};
-// c[3] = 'a';
-// s[1] = "rosh";
-// int i = 3;
-// loop i : arr{
-//     print(i);
-// }
-// loop i : arr{
-//     print(i);
-// }
+c[3] = 'a';
+s[1] = "rosh";
+int i = 3;
+loop i : arr{
+    print(i);
+}
+loop i : arr{
+    print(i);
+}
 
-// print("HII");
-// int j = 3;
-// loop j : 5{
-//     print(j);
-// }
+print("HII");
+int j = 3;
+loop j : 5{
+    print(j);
+}
 
 
 
-// int nums[3];
-// nums[1] = 1;
-// nums[2] = 2;
-// nums[3] = 3;
-// print(nums[1]);
+int nums[3];
+nums[1] = 1;
+nums[2] = 2;
+nums[3] = 3;
+print(nums[1]);
 
-// float f = 1.3;
+float f = 1.3;
 
-// bool b = true;
+bool b = true;
 
-// print("hello");
+print("hello");
 
 
 var x = 2;
@@ -76,54 +76,8 @@ loop c : s{
     print(c);
 }
 
-float f = 3.7;
-int x = int(f); 
-print(x);
 
-float f = 3.7;
-int a = int(f);  
+char c = 'A';
+str s = str(c); 
+print(s);
 
-    // Conversion from int to float
-    int i = 5;
-    float b = float(i);  
-
-// Conversion from int to string
-str s1 = str(a);  
-
-    // Conversion from float to string
-    str s2 = str(b);  
-
-    // Conversion from string to int (valid input)
-    str s3 = "42";
-    int c = int(s3);      
-
-    // Conversion from string to float (valid input)
-    str s4 = "3.14";
-    float d = float(s4);   
-
-    // Conversion from string to char (take the first character)
-    str s5 = "Hello";
-    char ch = char(s5);   
-
-    // Conversion from char to string
-    str s6 = str(ch); 
-
-    // Conversion from string to bool (assuming only "true" or "false" are valid)
-    // str s7 = "true";
-    // bool flag = bool(s7); 
-
-    // // Conversion from bool to string
-    bool flag = true;
-    str s8 = str(flag);  
-
-    // Print out all the results.
-    print(a);
-    print(b);
-    print(s1);
-    print(s2);
-    print(c);
-    print(d);
-    print(ch);
-    // print(s6);
-    // print(flag);
-    // print(s8);

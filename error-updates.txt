@@ -1,12 +1,10 @@
 ---------------------------
 variables
-1.type return
 ---------------------------
-1.Type conversion
+1.Type conversion - int <-> float done
 
 ---------------------------------------------
-Next update 
-1. string traversal using - 
+
 ---------------------------------------------
 
 ---------------------------------
@@ -32,6 +30,9 @@ int arr[n];
 
 string traversal
 
+gotta add is
+gotta remove () from if until etc
+
 -------------------------------------------
 text highlight:
 equals
@@ -51,16 +52,22 @@ is
 * 
 / 
 
+char c = 'A';
+str s = str(c);   // converts char 'A' to string "A"
+print(s);
+
+extension shows that this is an error
+
 ------------------------------
 
 int x = 6;
 if (x > 7){
   print("g");
-} 
+}
 else if (x not equals 6) {
   print("h");
   break;
-} 
+}
 else {
   print("i");
 }
