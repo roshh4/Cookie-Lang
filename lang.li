@@ -65,9 +65,9 @@
 // var x = 2;
 // print(type(x));
 
-// str s = "rosh";
-// char c = s[1];
+str s = "rosh";
+char c = s[1];
 
-str s = "rpsh";
-char c = s.at(1);
-print(type(c));
+// str s = "rpsh";
+// char c = s.at(1);
+print(c);

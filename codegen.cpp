@@ -152,6 +152,7 @@ Function* getReadStringFunction() {
   }
   return readStrFunc;
 }
+
 // --- New branch for INPUT_EXPR ---
 // This branch supports input statements with expressions (such as input(arr[4]);)
 // without changing any of the old lines.
@@ -415,23 +416,47 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return generateInputExpr(node, currentFunction);
   }
   
-  // --- ARRAY_ACCESS --- (New functionality)
-  if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
-    std::string varName = node->value;
-    Value *varPtr = NamedValues[varName];
-    if (!varPtr)
-         report_fatal_error(Twine("Error: Unknown array '") + varName + "'");
-    Value *indexVal = generateIR(node->left, currentFunction);
-    indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "arrayindex");
-    std::vector<Value*> indices;
-    indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
-    indices.push_back(indexVal);
-    AllocaInst *AI = dyn_cast<AllocaInst>(varPtr);
-    if (!AI)
-         report_fatal_error("ARRAY_ACCESS: Variable is not an alloca!");
-    Value *elemPtr = Builder.CreateGEP(AI->getAllocatedType(), varPtr, indices, "arrayelem");
-    return Builder.CreateLoad(AI->getAllocatedType()->getArrayElementType(), elemPtr, "load_array_elem");
+// --- ARRAY_ACCESS --- (Modified to support both arrays and strings)
+if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
+  std::string varName = node->value;
+  Value *varPtr = NamedValues[varName];
+  if (!varPtr)
+       report_fatal_error(Twine("Error: Unknown variable '") + varName + "'");
+  Value *indexVal = generateIR(node->left, currentFunction);
+  // Adjust for 1-based indexing: subtract 1 from index
+  indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "index_adj");
+
+  // If variable is an alloca, check its allocated type:
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(varPtr)) {
+    Type* allocatedType = AI->getAllocatedType();
+    // If it's truly an array, use two indices.
+    if (allocatedType->isArrayTy()) {
+      std::vector<Value*> indices;
+      indices.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+      indices.push_back(indexVal);
+      Value *elemPtr = Builder.CreateGEP(allocatedType, varPtr, indices, "arrayelem");
+      return Builder.CreateLoad(allocatedType->getArrayElementType(), elemPtr, "load_array_elem");
+    }
+    // Otherwise, assume the alloca holds a pointer (e.g. a string)
+    else if (allocatedType->isPointerTy()) {
+      // Load the pointer stored in the alloca
+      Value *ptrVal = Builder.CreateLoad(allocatedType, varPtr, "ptr_val");
+      Value *charPtr = Builder.CreateGEP(Type::getInt8Ty(Context), ptrVal, indexVal, "gep_char");
+      return Builder.CreateLoad(Type::getInt8Ty(Context), charPtr, "load_char");
+    }
+    else {
+      report_fatal_error("ARRAY_ACCESS: Alloca does not hold an array or pointer type");
+    }
   }
+  // If not an alloca, but directly a pointer, use a single-index GEP.
+  else if (varPtr->getType()->isPointerTy()) {
+    Value *charPtr = Builder.CreateGEP(Type::getInt8Ty(Context), varPtr, indexVal, "gep_char");
+    return Builder.CreateLoad(Type::getInt8Ty(Context), charPtr, "load_char");
+  }
+  else {
+    report_fatal_error("ARRAY_ACCESS: Unsupported variable type for indexing");
+  }
+}
   
     // --- Identifier lookup ---
     if (strcmp(node->type, "IDENTIFIER") == 0) {
@@ -1182,8 +1207,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Value *typeStr = Builder.CreateGlobalStringPtr(typeName, "typeStr");
     return typeStr;
   }
-
-
 
   // --- Specific Declarations ---
   if (strcmp(node->type, "DECL_INT") == 0) {
