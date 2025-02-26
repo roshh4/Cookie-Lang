@@ -50,6 +50,7 @@
 "size"                                   { return SIZE; }
 "true"                                   { yylval.str = strdup("true"); return BOOLEAN; }
 "false"                                  { yylval.str = strdup("false"); return BOOLEAN; }
+"\."                                     { return DOT; }   /* New dot operator rule */
 ":"                                      { return ':'; }
 ","                                      { return COMMA; }
 "<"                                      { return LT; }
@@ -69,8 +70,8 @@
 [0-9]+\.[0-9]+                          { yylval.str = strdup(yytext); return FLOAT_NUMBER; }
 [0-9]+                                   { yylval.str = strdup(yytext); return NUMBER; }
 "'"[^\']"'"                              { yylval.str = strdup(yytext); return CHAR_LITERAL; }
-\"[^\"]*\"                              { yylval.str = strdup(yytext); return STRING_LITERAL; }
-[a-zA-Z_][a-zA-Z0-9_]*                    { yylval.str = strdup(yytext); return IDENTIFIER; }
-[ \t\n]+                                ;
+\"[^\"]*\"                               { yylval.str = strdup(yytext); return STRING_LITERAL; }
+[a-zA-Z_][a-zA-Z0-9_]*                   { yylval.str = strdup(yytext); return IDENTIFIER; }
+[ \t\n]+                                 ;
 .                                        { /* ignore any other character */ }
 %%
