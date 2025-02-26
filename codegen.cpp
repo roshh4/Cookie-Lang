@@ -152,7 +152,6 @@ Function* getReadStringFunction() {
   }
   return readStrFunc;
 }
-
 // --- New branch for INPUT_EXPR ---
 // This branch supports input statements with expressions (such as input(arr[4]);)
 // without changing any of the old lines.
@@ -215,7 +214,7 @@ Value *generateInputExpr(ASTNode *node, Function* currentFunction) {
   } else {
          report_fatal_error("INPUT_EXPR: Unsupported lvalue for input");
   }
-} 
+}
 
 // --- Helper Passes for IR Generation ---
 // Generate IR for all function definitions.
@@ -434,21 +433,22 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     return Builder.CreateLoad(AI->getAllocatedType()->getArrayElementType(), elemPtr, "load_array_elem");
   }
   
-  // --- Identifier lookup ---
-  if (strcmp(node->type, "IDENTIFIER") == 0) {
-    Value* varPtr = NamedValues[node->value];
-    if (!varPtr) {
-      report_fatal_error(Twine("Error: Unknown variable '") + node->value + "'");
+    // --- Identifier lookup ---
+    if (strcmp(node->type, "IDENTIFIER") == 0) {
+      Value* varPtr = NamedValues[node->value];
+      if (!varPtr) {
+        report_fatal_error(Twine("Error: Unknown variable '") + node->value + "'");
+      }
+      // If the variable is stored in an alloca, load it.
+      if (AllocaInst *alloca = dyn_cast<AllocaInst>(varPtr))
+        return Builder.CreateLoad(alloca->getAllocatedType(), varPtr, node->value);
+      else {
+        PointerType *ptrType = dyn_cast<PointerType>(varPtr->getType());
+        if (!ptrType || ptrType->getNumContainedTypes() < 1)
+          report_fatal_error(Twine("Error: Variable ") + node->value + " is not a proper pointer type!");
+        return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
+      }
     }
-    if (AllocaInst *alloca = dyn_cast<AllocaInst>(varPtr))
-      return Builder.CreateLoad(alloca->getAllocatedType(), varPtr, node->value);
-    else {
-      PointerType *ptrType = dyn_cast<PointerType>(varPtr->getType());
-      if (!ptrType || ptrType->getNumContainedTypes() < 1)
-        report_fatal_error(Twine("Error: Variable ") + node->value + " is not a proper pointer type!");
-      return Builder.CreateLoad(ptrType->getContainedType(0), varPtr, node->value);
-    }
-  }
   
   // --- Unary minus ---
   if (strcmp(node->type, "NEG") == 0) {
@@ -605,11 +605,19 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       if (exprVal->getType()->isIntegerTy())
         exprVal = Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "intToFloat");
     }
-    if (strcmp(node->type, "ASSIGN_STRING") == 0) {
+      if (strcmp(node->type, "ASSIGN_STRING") == 0) {
+      Value *exprVal = generateIR(node->left, currentFunction);
+      Value *varPtr = NamedValues[node->value];
+      if (!varPtr) {
+        varPtr = CreateEntryBlockAlloca(currentFunction, node->value, PointerType::get(Type::getInt8Ty(Context), 0));
+        NamedValues[node->value] = varPtr;
+      }
+      // exprVal should be an i8* (from a STRING_LITERAL)
       Value *strVal = Builder.CreateBitCast(exprVal, PointerType::get(Type::getInt8Ty(Context), 0), "strcast");
       Builder.CreateStore(strVal, varPtr);
       return strVal;
-    }
+  }
+
     Builder.CreateStore(exprVal, varPtr);
     return exprVal;
   }
@@ -781,7 +789,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.SetInsertPoint(afterBB);
     return ConstantInt::get(Type::getInt32Ty(Context), 0);
   }
-  
   // --- SWITCH-CASE ---
   if (strcmp(node->type, "SWITCH") == 0) {
     Value *switchVal = generateIR(node->left, currentFunction);
@@ -848,7 +855,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       return generateIR(node->right, currentFunction);
     return nullptr;
   }
-  
   // --- VAR_DECL ---
   if (strcmp(node->type, "VAR_DECL") == 0) {
     std::string varName = node->value;
@@ -867,7 +873,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     Builder.CreateStore(exprVal, varPtr);
     return exprVal;
   }
-  
   // --- Array Declarations for INT ---
   if (strcmp(node->type, "DECL_ARRAY") == 0) {
     std::string varName = node->value;
@@ -886,7 +891,6 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
       report_fatal_error("Only constant array sizes are supported in DECL_ARRAY");
     }
   }
-  
   if (strcmp(node->type, "DECL_ARRAY_INIT") == 0) {
     std::string varName = node->value;
     int count = 0;
@@ -1502,7 +1506,47 @@ Value *generateIR(ASTNode *node, Function* currentFunction) {
     }
   }
 
-  
+  // --- METHOD_CALL for "at" ---
+  if (strcmp(node->type, "METHOD_CALL") == 0) {
+    std::string methodName = node->value;
+    if (methodName == "at") {
+       // Generate IR for the object (e.g., the string)
+       Value* obj = generateIR(node->left, currentFunction);
+       // If the object is stored in an alloca, load its value.
+       if (AllocaInst *AI = dyn_cast<AllocaInst>(obj)) {
+           obj = Builder.CreateLoad(AI->getAllocatedType(), obj, "load_obj");
+       }
+       // If the object is an array type, convert it to a pointer
+       if (obj->getType()->isArrayTy()) {
+           Type *elemType = cast<ArrayType>(obj->getType())->getElementType();
+           obj = Builder.CreateInBoundsGEP(elemType, obj, {ConstantInt::get(Type::getInt32Ty(Context), 0)}, "array_to_ptr");
+       }
+       // If not a pointer yet, try a bitcast to i8*
+       else if (!obj->getType()->isPointerTy()) {
+           obj = Builder.CreateBitCast(obj, PointerType::get(Type::getInt8Ty(Context), 0), "strcast");
+       }
+       
+       // Generate IR for the argument (the index)
+       Value* indexVal = generateIR(node->right, currentFunction);
+       if (!indexVal->getType()->isIntegerTy(32))
+           indexVal = Builder.CreateIntCast(indexVal, Type::getInt32Ty(Context), true, "indexCast");
+       // Adjust for 1-based indexing: subtract 1
+       indexVal = Builder.CreateSub(indexVal, ConstantInt::get(Type::getInt32Ty(Context), 1), "at_index");
+       
+       // Now that obj is ensured to be a pointer, use a single-index GEP.
+       if (obj->getType()->isPointerTy()) {
+           Value* charPtr = Builder.CreateGEP(Type::getInt8Ty(Context), obj, indexVal, "at_charptr");
+           return Builder.CreateLoad(Type::getInt8Ty(Context), charPtr, "at_char");
+       }
+       else {
+           report_fatal_error("METHOD_CALL: Unsupported object for 'at' method");
+       }
+    }
+    else {
+       report_fatal_error("METHOD_CALL: Unknown method");
+    }
+}
+
   return nullptr;
 }
 

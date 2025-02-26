@@ -34,8 +34,13 @@
     "languages": [
       {
         "id": "langli",
-        "aliases": ["Lang.li", "langli"],
-        "extensions": [".li"],
+        "aliases": [
+          "Lang.li",
+          "langli"
+        ],
+        "extensions": [
+          ".li"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -53,8 +58,11 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.97.0",
     "@types/node": "^20.x",
+    "@types/vscode": "^1.97.0",
     "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "langli-extension": "file:"
   }
 }
