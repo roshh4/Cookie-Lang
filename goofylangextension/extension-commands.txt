@@ -1,0 +1,14 @@
+To Build and complie:
+npm install   
+npm run compile 
+
+To Package:
+
+vsce package
+---------------------------
+To Install Locally:
+
+code --install-extension langli-extension-x.x.x.vsix
+
+x.x.x - The version of the build 
+---------------------------

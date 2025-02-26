@@ -1,0 +1,45 @@
+{
+    "If Statement": {
+      "prefix": "if",
+      "body": [
+        "if ($1) {",
+        "    $2",
+        "}"
+      ],
+      "description": "Insert an if statement"
+    },
+    "Loop Statement": {
+      "prefix": "loop",
+      "body": [
+        "loop until ($1) {",
+        "    $2",
+        "}"
+      ],
+      "description": "Insert a loop until condition is met"
+    },
+    "Function Definition": {
+      "prefix": "fun",
+      "body": [
+        "fun $1($2) {",
+        "    $3",
+        "    return $4;",
+        "}"
+      ],
+      "description": "Insert a function definition"
+    },
+    "Variable Declaration": {
+      "prefix": "var",
+      "body": [
+        "var $1 = $2;"
+      ],
+      "description": "Insert a variable declaration"
+    },
+    "Print Statement": {
+      "prefix": "print",
+      "body": [
+        "print($1);"
+      ],
+      "description": "Insert a print statement"
+    }
+  }
+  
