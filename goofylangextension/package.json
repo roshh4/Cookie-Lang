@@ -1,9 +1,9 @@
 {
   "name": "langli-extension",
-  "displayName": "Goofy Extension",
-  "description": "VS Code extension for the Lang.li programming language with advanced syntax highlighting, error detection, and toggle commands.",
+  "displayName": "Cookie Language Extension",
+  "description": "A custom VS Code extension for the cookie programming language with syntax highlighting, error detection, and code snippets. Crafted with detication!",
   "version": "6.0.0",
-  "publisher": "Dorito",
+  "publisher": "alph",
   "repository": {
     "type": "git",
     "url": "https://github.com/alphastar-avi/Goofy-Compiler"
@@ -39,7 +39,7 @@
           "langli"
         ],
         "extensions": [
-          ".li"
+          ".cook"
         ],
         "configuration": "./language-configuration.json"
       }

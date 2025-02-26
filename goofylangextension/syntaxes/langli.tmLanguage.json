@@ -1,6 +1,6 @@
 {
   "scopeName": "source.langli",
-  "fileTypes": ["li"],
+  "fileTypes": ["cook"],
   "patterns": [
     {
       "name": "comment.line.langli",

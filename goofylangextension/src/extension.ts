@@ -151,4 +151,3 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
 }
 
 export function deactivate() {}
-``

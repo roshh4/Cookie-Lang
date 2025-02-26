@@ -125,5 +125,4 @@ function updateDiagnostics(document, collection) {
     collection.set(document.uri, diagnostics);
 }
 function deactivate() { }
-``;
 //# sourceMappingURL=extension.js.map
