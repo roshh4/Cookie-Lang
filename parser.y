@@ -32,6 +32,8 @@ ASTNode *root;  // Global AST root.
 %token LBRACKET RBRACKET
 %token INLINE
 %token SIZE
+%token DOT
+
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -166,6 +168,9 @@ statement:
           { $$ = createASTNode("ASSIGN_CHAR", $2, createASTNode("CHAR", $4, NULL, NULL), NULL); }
     | CHAR IDENTIFIER IS CHAR_LITERAL SEMICOLON
           { $$ = createASTNode("ASSIGN_CHAR", $2, createASTNode("CHAR", $4, NULL, NULL), NULL); }
+      | CHAR IDENTIFIER ASSIGN expression SEMICOLON 
+            { $$ = createASTNode("ASSIGN_CHAR", $2, $4, NULL); }
+
     | STRING IDENTIFIER ASSIGN expression SEMICOLON
           { $$ = createASTNode("ASSIGN_STRING", $2, $4, NULL); }
     | STRING IDENTIFIER IS expression SEMICOLON
@@ -290,7 +295,8 @@ multiplicative_expression:
     ;
 
 primary:
-    NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
+    primary DOT IDENTIFIER LPAREN argument_list_opt RPAREN { $$ = createASTNode("METHOD_CALL", $3, $1, $5); }
+    | NOT primary { $$ = createASTNode("NOT", "!", $2, NULL); }
     | MINUS primary { $$ = createASTNode("NEG", "-", $2, NULL); }
     | SIZE LPAREN expression RPAREN { $$ = createASTNode("SIZE", NULL, $3, NULL); }
     | NUMBER { $$ = createASTNode("NUMBER", $1, NULL, NULL); }
@@ -299,11 +305,10 @@ primary:
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
     | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
     | IDENTIFIER LPAREN argument_list_opt RPAREN { $$ = createASTNode("CALL", $1, $3, NULL); }
-    /* Array access: e.g., arr[1] */
     | IDENTIFIER LBRACKET expression RBRACKET { $$ = createASTNode("ARRAY_ACCESS", $1, $3, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
     | LPAREN expression RPAREN { $$ = $2; }
-      | TYPE LPAREN expression RPAREN{ $$ = createASTNode("TYPE", NULL, $3, NULL); }
+    | TYPE LPAREN expression RPAREN { $$ = createASTNode("TYPE", NULL, $3, NULL); }
     ;
 
 %%
