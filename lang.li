@@ -73,4 +73,10 @@
 // print(c);
 print("whatttt");
 input(a);
-print(a);
+input(b);
+sum(a, b);
+
+fun sum(int a , int b){
+    int y = a + b;
+    print(y);
+}
