@@ -68,6 +68,6 @@
 str s = "rosh";
 char c = s[1];
 
-// str s = "rpsh";
-// char c = s.at(1);
+str s = "rpsh";
+char c = s.at(1);
 print(c);
