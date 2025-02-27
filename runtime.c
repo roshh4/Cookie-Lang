@@ -102,3 +102,32 @@ char* read_string() {
     }
     return strdup(buffer);
 }
+
+// Converts a char to its string representation.
+// Caller is responsible for freeing the returned string.
+char* char_to_string(char c) {
+    char buffer[2];
+    buffer[0] = c;
+    buffer[1] = '\0';
+    return strdup(buffer);
+}
+
+// Converts an int to its string representation.
+// Caller is responsible for freeing the returned string.
+char* int_to_string(int x) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%d", x);
+    return strdup(buffer);
+}
+
+// Converts a string to an int.
+// If the input does not represent a valid integer, prints a professional error message and exits.
+int string_to_int(const char* s) {
+    char* endptr;
+    long val = strtol(s, &endptr, 10);
+    if (s == endptr || *endptr != '\0') {
+        fprintf(stderr, "Conversion Error: Input \"%s\" is not a valid int.\n", s);
+        exit(EXIT_FAILURE);
+    }
+    return (int)val;
+}

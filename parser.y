@@ -33,6 +33,7 @@ ASTNode *root;  // Global AST root.
 %token INLINE
 %token SIZE
 %token DOT
+%token INT_FROM_STRING FLOAT_FROM_STRING BOOL_FROM_STRING CHAR_FROM_STRING
 
 
 /* Precedence declarations */
@@ -304,6 +305,10 @@ primary:
     | BOOLEAN { $$ = createASTNode("BOOLEAN", $1, NULL, NULL); }
     | CHAR_LITERAL { $$ = createASTNode("CHAR", $1, NULL, NULL); }
     | STRING_LITERAL { $$ = createASTNode("STRING", $1, NULL, NULL); }
+    | INT LPAREN expression RPAREN    { $$ = createASTNode("CAST_INT", NULL, $3, NULL); }
+    | FLOAT LPAREN expression RPAREN  { $$ = createASTNode("CAST_FLOAT", NULL, $3, NULL); }
+    | STRING LPAREN expression RPAREN { $$ = createASTNode("CAST_STRING", NULL, $3, NULL); }
+    | CHAR LPAREN expression RPAREN   { $$ = createASTNode("CAST_CHAR", NULL, $3, NULL); }
     | IDENTIFIER LPAREN argument_list_opt RPAREN { $$ = createASTNode("CALL", $1, $3, NULL); }
     | IDENTIFIER LBRACKET expression RBRACKET { $$ = createASTNode("ARRAY_ACCESS", $1, $3, NULL); }
     | IDENTIFIER { $$ = createASTNode("IDENTIFIER", $1, NULL, NULL); }
