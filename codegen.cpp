@@ -57,6 +57,17 @@ Function* getPrintfFunction() {
   return printfFunc;
 }
 
+Function* getIntToStrFunction() {
+  Function *f = TheModule->getFunction("int_to_string");
+  if (!f) {
+    std::vector<Type*> args;
+    args.push_back(Type::getInt32Ty(Context));
+    FunctionType* ft = FunctionType::get(PointerType::get(Type::getInt8Ty(Context), 0), args, false);
+    f = Function::Create(ft, Function::ExternalLinkage, "int_to_string", TheModule);
+  }
+  return f;
+}
+
 Function* getCharToStrFunction() {
   Function *f = TheModule->getFunction("char_to_string");
   if (!f) {
@@ -162,6 +173,17 @@ Function* getReadStringFunction() {
     readStrFunc = Function::Create(funcType, Function::ExternalLinkage, "read_string", TheModule);
   }
   return readStrFunc;
+}
+
+Function* getStrToIntFunction() {
+  Function *f = TheModule->getFunction("string_to_int");
+  if (!f) {
+    std::vector<Type*> args;
+    args.push_back(PointerType::get(Type::getInt8Ty(Context), 0));
+    FunctionType* ft = FunctionType::get(Type::getInt32Ty(Context), args, false);
+    f = Function::Create(ft, Function::ExternalLinkage, "string_to_int", TheModule);
+  }
+  return f;
 }
 
 // --- New branch for INPUT_EXPR ---
@@ -572,18 +594,57 @@ if (strcmp(node->type, "ARRAY_ACCESS") == 0) {
       }
     }
 
-    // --- Type Conversion: CAST_INT ---
-// Converts an expression to an int (truncates float values)
+// --- Type Conversion: CAST_INT ---
+// Converts an expression to int.
+// - If the expression is a float, it truncates.
+// - If it's already a 32-bit int, it returns it.
+// - If it's an 8-bit int (char), it zero‑extends it to a 32-bit int.
+// - If it's a string (i8*), it calls string_to_int.
 if (strcmp(node->type, "CAST_INT") == 0) {
   Value *exprVal = generateIR(node->left, currentFunction);
   if (exprVal->getType()->isFloatTy())
     return Builder.CreateFPToSI(exprVal, Type::getInt32Ty(Context), "fp_to_int");
   else if (exprVal->getType()->isIntegerTy(32))
     return exprVal;
-  else
-    // Fallback: try converting via FPToSI (adjust as needed)
-    return Builder.CreateFPToSI(exprVal, Type::getInt32Ty(Context), "fp_to_int");
+  else if (exprVal->getType()->isIntegerTy(8))
+    return Builder.CreateZExt(exprVal, Type::getInt32Ty(Context), "char_to_int");
+  else if (exprVal->getType()->isPointerTy() &&
+           exprVal->getType() == PointerType::get(Type::getInt8Ty(Context), 0)) {
+    Function *fromStr = getStrToIntFunction();
+    return Builder.CreateCall(fromStr, {exprVal}, "str_to_int");
+  } else {
+    report_fatal_error("Conversion Error: Expression cannot be converted to int");
+  }
 }
+
+
+// --- Type Conversion: CAST_STRING ---
+// Converts an expression to a string.
+// If the expression is already a string (i8*), returns it.
+// If it is a 32-bit integer, calls int_to_string.
+// If it is an 8-bit integer (char), calls char_to_string.
+if (strcmp(node->type, "CAST_STRING") == 0) {
+  Value *exprVal = generateIR(node->left, currentFunction);
+  // Already a string? (Assuming string type is represented as i8*)
+  if (exprVal->getType()->isPointerTy() &&
+      exprVal->getType() == PointerType::get(Type::getInt8Ty(Context), 0)) {
+    return exprVal;
+  }
+  // If it's a 32-bit int, convert it to string.
+  else if (exprVal->getType()->isIntegerTy(32)) {
+    Function *toStr = getIntToStrFunction();
+    return Builder.CreateCall(toStr, {exprVal}, "int_to_str");
+  }
+  // If it's an 8-bit int, assume it's a char.
+  else if (exprVal->getType()->isIntegerTy(8)) {
+    Function *toStr = getCharToStrFunction();
+    return Builder.CreateCall(toStr, {exprVal}, "char_to_str");
+  }
+  else {
+    report_fatal_error("Conversion Error: Expression cannot be converted to string");
+  }
+}
+
 
 // --- Type Conversion: CAST_FLOAT ---
 // Converts an expression to a float
@@ -598,16 +659,18 @@ if (strcmp(node->type, "CAST_FLOAT") == 0) {
     return Builder.CreateSIToFP(exprVal, Type::getFloatTy(Context), "int_to_fp");
 }
 
-// --- Type Conversion: CAST_CHAR_TO_STRING ---
-// Converts a char to a string.
-if (strcmp(node->type, "CAST_CHAR_TO_STRING") == 0) {
+// --- Type Conversion: CAST_CHAR ---
+// Converts an expression to char.
+// If the expression is a 32-bit int, it truncates it to 8 bits.
+// If it's already a char (8-bit int), it returns the value.
+if (strcmp(node->type, "CAST_CHAR") == 0) {
   Value *exprVal = generateIR(node->left, currentFunction);
-  // Check if the expression is of type char (i8)
-  if (exprVal->getType()->isIntegerTy(8)) {
-       Function *toStr = getCharToStrFunction();
-       return Builder.CreateCall(toStr, {exprVal}, "char_to_str");
-  } else {
-       report_fatal_error("Conversion Error: Expression is not of type char; cannot convert to string");
+  if (exprVal->getType()->isIntegerTy(8))
+    return exprVal;
+  else if (exprVal->getType()->isIntegerTy(32))
+    return Builder.CreateTrunc(exprVal, Type::getInt8Ty(Context), "int_to_char");
+  else {
+    report_fatal_error("Conversion Error: Expression cannot be converted to char");
   }
 }
   

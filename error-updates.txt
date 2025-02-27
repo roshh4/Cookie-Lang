@@ -1,7 +1,10 @@
 ---------------------------
 variables
 ---------------------------
-1.Type conversion - int <-> float done
+1.Type conversion - 
+int <-> float done
+char -> str done
+int <-> char done - unicode values
 
 ---------------------------------------------
 
@@ -77,3 +80,6 @@ LLVM ERROR: Break statement not within switch-case
 [1]    44199 done       cat lang.li | 
        44200 abort      ./compiler > output.ll
 lli: Symbols not found: [ _main ]
+
+
+mod operator
