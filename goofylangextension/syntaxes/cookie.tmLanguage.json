@@ -1,58 +1,58 @@
 {
-  "scopeName": "source.langli",
-  "fileTypes": ["li"],
+  "scopeName": "source.cookie",
+  "fileTypes": ["cook"],
   "patterns": [
     {
-      "name": "comment.line.langli",
+      "name": "comment.line.cookie",
       "begin": "^(?:\\s*(?://|comment:))",
       "end": "$"
     },
     {
-      "name": "keyword.control.langli",
+      "name": "keyword.control.cookie",
       "match": "\\b(if|else|while|until|loop|switch|case:|default|break|return|fun)\\b"
     },
     {
-      "name": "storage.type.langli",
+      "name": "storage.type.cookie",
       "match": "\\b(int|float|bool|char|str|var|type|inline)\\b"
     },
     {
-      "name": "support.function.builtin.langli",
+      "name": "support.function.builtin.cookie",
       "match": "\\b(print|input)\\b"
     },
     {
-      "name": "keyword.operator.comparison.langli",
+      "name": "keyword.operator.comparison.cookie",
       "match": "(<=|>=|<|>|==|!=)|\\b(lesser\\s+than(\\s+equals)?|greater\\s+than(\\s+equals)?)\\b"
     },
     {
-      "name": "keyword.operator.logical.langli",
+      "name": "keyword.operator.logical.cookie",
       "match": "\\b(and|or)\\b|(&&|\\|\\|)"
     },
     {
-      "name": "keyword.operator.arithmetic.langli",
+      "name": "keyword.operator.arithmetic.cookie",
       "match": "[+\\-*/=]"
     },
     {
-      "name": "constant.numeric.langli",
+      "name": "constant.numeric.cookie",
       "match": "\\b\\d+(\\.\\d+)?\\b"
     },
     {
-      "name": "string.quoted.double.langli",
+      "name": "string.quoted.double.cookie",
       "begin": "\"",
       "end": "\"",
       "patterns": [
         {
-          "name": "constant.character.escape.langli",
+          "name": "constant.character.escape.cookie",
           "match": "\\\\."
         }
       ]
     },
     {
-      "name": "string.quoted.single.langli",
+      "name": "string.quoted.single.cookie",
       "begin": "'",
       "end": "'",
       "patterns": [
         {
-          "name": "constant.character.escape.langli",
+          "name": "constant.character.escape.cookie",
           "match": "\\\\."
         }
       ]

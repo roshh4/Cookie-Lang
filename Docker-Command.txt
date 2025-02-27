@@ -1,3 +1,7 @@
+To build:
+docker build --no-cache -t cookie .
+
+---------------------
 To run the container:
 docker run --rm cookie
 
@@ -11,6 +15,18 @@ cat lang.li
 
 ---------------------
 To run the files dynamically:
+
+docker run --rm -it -v "$(pwd)/lang.cook":/cookie_dir/lang.cook cookie
+----------------------
+
+TO BUILD AND RUN FROM DOCKER HUB PULLED IMAGE:
+1.docker pull alphastar59/cookie:latest
+(For Mac and lunux):
+2.docker run --rm -it -v "$(pwd)/filename.cook":/cookie_dir/lang.cook alphastar59/cookie:latest
+(for Windows):
+3.docker run --rm -it -v "${PWD}/filename.cook:/cookie_dir/lang.cook" alphastar59/cookie:latest
+------------------------------------------------------------------
+Old Files:
 docker run --rm -v "docker run --rm -v "$(pwd)/lang.li":/goofy/lang.li cookie
 $(pwd)":/goofy cookie
 

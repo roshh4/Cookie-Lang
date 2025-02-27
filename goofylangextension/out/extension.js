@@ -5,14 +5,14 @@ exports.deactivate = deactivate;
 const vscode = require("vscode");
 let goofyHighlightsEnabled = true;
 function activate(context) {
-    console.log('Lang.li extension is active!');
-    // Define rules for comments so that they are always dull gray (#666666)
+    console.log('Cookie extension is active!');
+    // Define comment rules: ensure comment lines are always dull gray (#666666)
     const commentRule = {
-        "scope": "comment.line.langli",
+        "scope": "comment.line.cookie",
         "settings": { "foreground": "#666666" }
     };
     const punctuationCommentRule = {
-        "scope": "punctuation.definition.comment.langli",
+        "scope": "punctuation.definition.comment.cookie",
         "settings": { "foreground": "#666666" }
     };
     const commentRules = [commentRule, punctuationCommentRule];
@@ -22,15 +22,15 @@ function activate(context) {
         "textMateRules": commentRules
     }, vscode.ConfigurationTarget.Global);
     // Toggle command for Goofy highlights
-    let toggleCmd = vscode.commands.registerCommand('langli.toggleGoofyHighlights', () => {
+    let toggleCmd = vscode.commands.registerCommand('cookie.toggleGoofyHighlights', () => {
         goofyHighlightsEnabled = !goofyHighlightsEnabled;
         const config = vscode.workspace.getConfiguration('editor');
         if (!goofyHighlightsEnabled) {
-            // Override all tokens in source.langli to black (#000000), preserving comment colors
+            // Override all tokens in source.cookie to black (#000000), preserving comment colors
             config.update('tokenColorCustomizations', {
                 "textMateRules": [
                     {
-                        "scope": "source.langli",
+                        "scope": "source.cookie",
                         "settings": { "foreground": "#000000" }
                     },
                     ...commentRules
@@ -40,7 +40,7 @@ function activate(context) {
             });
         }
         else {
-            // Restore highlighting by removing override (keeping comment rules)
+            // Restore highlighting by removing override (keep comment rules)
             config.update('tokenColorCustomizations', {
                 "textMateRules": commentRules
             }, vscode.ConfigurationTarget.Global).then(() => {
@@ -49,13 +49,13 @@ function activate(context) {
         }
     });
     context.subscriptions.push(toggleCmd);
-    // Command for "Who's Dorito" that displays "alpha's Dorito not ros's"
+    // Command: "Who's Dorito" displays "alpha's Dorito not ros's"
     let doritoCmd = vscode.commands.registerCommand('Goofy.dorito', () => {
         vscode.window.showInformationMessage("alpha's Dorito not ros's");
     });
     context.subscriptions.push(doritoCmd);
-    // Diagnostics: Check for missing semicolons
-    let diagnosticCollection = vscode.languages.createDiagnosticCollection("langliDiagnostics");
+    // Diagnostics: Simple check for missing semicolons
+    let diagnosticCollection = vscode.languages.createDiagnosticCollection("cookieDiagnostics");
     context.subscriptions.push(diagnosticCollection);
     if (vscode.window.activeTextEditor) {
         updateDiagnostics(vscode.window.activeTextEditor.document, diagnosticCollection);
@@ -66,8 +66,8 @@ function activate(context) {
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((doc) => {
         updateDiagnostics(doc, diagnosticCollection);
     }));
-    // Auto-completion (IntelliSense) provider for Lang.li
-    let completionProvider = vscode.languages.registerCompletionItemProvider('langli', {
+    // Auto-completion (IntelliSense) provider for Cookie language
+    let completionProvider = vscode.languages.registerCompletionItemProvider('cookie', {
         provideCompletionItems(document, position) {
             let completions = [];
             // Keywords
@@ -89,18 +89,17 @@ function activate(context) {
             for (const func of builtins) {
                 let item = new vscode.CompletionItem(func, vscode.CompletionItemKind.Function);
                 item.detail = "Built-in function";
-                // Insert snippet: e.g., print($1);
                 item.insertText = new vscode.SnippetString(func + "($1);");
                 completions.push(item);
             }
             return completions;
         }
-    }, '.' // Trigger on period; you can add more trigger characters as needed.
+    }, '.' // Trigger character; you can adjust as needed.
     );
     context.subscriptions.push(completionProvider);
 }
 function updateDiagnostics(document, collection) {
-    if (document.languageId !== 'langli') {
+    if (document.languageId !== 'cookie') {
         collection.clear();
         return;
     }
@@ -108,7 +107,7 @@ function updateDiagnostics(document, collection) {
     let diagnostics = [];
     lines.forEach((line, i) => {
         const trimmed = line.trim();
-        // Skip empty lines, lines starting with "//" or "comment:" and lines ending with "{" or "}"
+        // Skip empty lines, lines starting with "//" or "comment:" (as defined in the grammar), and lines ending with "{" or "}"
         if (trimmed === "" ||
             trimmed.startsWith("//") ||
             trimmed.startsWith("comment:") ||
@@ -125,5 +124,4 @@ function updateDiagnostics(document, collection) {
     collection.set(document.uri, diagnostics);
 }
 function deactivate() { }
-``;
 //# sourceMappingURL=extension.js.map
