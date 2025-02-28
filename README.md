@@ -211,7 +211,7 @@ cookie_extension/
 
 ### Print, Input, and Inline
 
-- **print(expression);**
+- **print();**
     
     Prints the evaluated value of the expression. If used as `print();`, it simply prints a new line.
     
@@ -222,7 +222,7 @@ cookie_extension/
     print();  // Prints a new line.
     ```
     
-- **input(expression);**
+- **input();**
     
     Reads input from the user. The expression may serve as a prompt or an initializer for processing the input.
     
@@ -232,7 +232,7 @@ cookie_extension/
     input("Enter your name: ");
     ```
     
-- **inline(expression);**
+- **inline();**
     
     Prints the expression inline. This can be useful for immediate execution of a function or operation.
     
@@ -280,7 +280,7 @@ float pi = 3.14;     // Declaration of a floating-point number.
 
 ---
 
-## 3. Data Types
+## Data Types
 
 Cookie has five primary data types with auto-detection when using literals:
 
@@ -294,16 +294,16 @@ Cookie has five primary data types with auto-detection when using literals:
 
 - **Auto-detection:**
     
-    When you write a literal (e.g., `123` or `"Hello"`), Cookie automatically detects its type.
+    When you assign a literal to a variable using var, like var x = 10;, Cookie automatically detects its type.
     
 - **Type Conversions:**
     
     Explicit conversion is available using a cast-like syntax:
     
-    - `int(expression)`
-    - `float(expression)`
-    - `string(expression)`
-    - `char(expression)`
+    - `int()`
+    - `float()`
+    - `string()`
+    - `char()`
 
 These allow converting between compatible types.
 
@@ -326,13 +326,13 @@ float value = float("3.14");
 
 ---
 
-## 4. Operators
+## Operators
 
 ### Arithmetic Operators
 
 - **Addition:** `+`
-- **Subtraction:** ``
-- **Multiplication:** ``
+- **Subtraction:** `-`
+- **Multiplication:** `*`
 - **Division:** `/`
 
 **Example:**
@@ -378,7 +378,7 @@ if (flag and (x equals 5)) {
 
 ---
 
-## 5. Control Structures
+## Control Structures
 
 ### Simple If
 
@@ -429,6 +429,15 @@ if (x > 0) {
 Chains multiple conditions.
 
 **Syntax:**
+```
+if (condition) {
+    //statements
+} else if (condition) {
+    //statements
+} else {
+    //statements
+}
+```
 
 **Example:**
 
@@ -489,7 +498,7 @@ switch (x) {
 
 ---
 
-## 6. Arrays
+## Arrays
 
 Arrays are ordered collections of elements. In Cookie, arrays are declared with a specified type and support a built-in size function.
 
