@@ -147,6 +147,9 @@ Cookie-Compiler/
 ---
 
 ## **VS Code Extension**
+## Cookie Extension
+
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/AvinashS.cookie-extension?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=AvinashS.cookie-extension) [ Click to download ]
 
 Cookie also includes a VS Code extension to provide syntax highlighting, code-snippets & IntelliSense.
 
