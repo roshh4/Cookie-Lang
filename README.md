@@ -155,7 +155,9 @@ Cookie also includes a VS Code extension to provide syntax highlighting, code-sn
 code --install-extension cookie_extension-7.0.0.vsix
 ```
 
+
 ### **If you wanna develope the extension by yourself:**
+
 
 ### **File Structure for the Extension**
 
@@ -201,10 +203,9 @@ cookie_extension/
 
      ---
 
-### **We welcome all feature requests and bug reports, so feel free to open an issue. **
+--- 
+---
 
----
----
 
 ## Basic Syntax
 
@@ -233,15 +234,12 @@ cookie_extension/
     
 - **inline(expression);**
     
-    Evaluates the expression inline. This can be useful for immediate execution of a function or operation.
+    Prints the expression inline. This can be useful for immediate execution of a function or operation.
     
     **Example:**
     
     ```
-    cook
-    CopyEdit
     inline(2 + 3);
-    
     ```
     
 
@@ -257,8 +255,6 @@ Both types are ignored by the parser.
 **Example:**
 
 ```
-c
-CopyEdit
 // This is a single-line comment.
 comment: This is another comment.
 
@@ -619,12 +615,12 @@ loop until (x equals 10) {
 
 ## 8. Functions
 
-Functions in Cookie are defined using the `fun` keyword. They can either print a value directly or return a value for further use.
+Functions in Cookie are defined using the `fun` keyword. They can either print a value directly or return a value for further use. 
 
 **Syntax:**
 
 ```
-fun functionName(parameter_list) {
+fun functionName(parameter_list) {  // Multi-parameter also works
     // function body
     return expression;  // Optional, if a value is to be returned.
 }
@@ -647,3 +643,7 @@ fun functionName(parameter_list) {
         return (a + b);
     }
     ```
+
+---
+### We welcome all feature requests and bug reports, so feel free to open an issue.
+--- 
