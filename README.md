@@ -203,11 +203,10 @@ cookie_extension/
 
      ---
 
---- 
 ---
 
 
-## Basic Syntax
+## Syntax
 
 ### Print, Input, and Inline
 
@@ -550,7 +549,7 @@ Executes a block a fixed number of times.
 **Syntax:**
 
 ```
-loop (expression) {
+loop range {
     // statements
 }
 ```
@@ -558,14 +557,35 @@ loop (expression) {
 **Example:**
 
 ```
-loop (5) {
+loop 5 {
     print("Iteration");
 }
 ```
 
 ### Range-based Loop
 
-Iterates over each element of an array.
+The loop starts with the value of the identifier (if its been assigned already, if not, its automatically assigned 1), and goes on till the given numeric value.
+
+**Syntax:**
+
+```
+loop identifier : range {
+    // statements
+}
+
+```
+
+**Example:**
+
+```
+loop i : numbers {
+    print(i);
+}
+```
+
+### Array-Based Loop
+
+The identifier takes on each value of the array sequentially.
 
 **Syntax:**
 
@@ -578,14 +598,16 @@ loop identifier : array {
 **Example:**
 
 ```
-loop i : numbers {
-    print(i);
+var numbers = [10, 20, 30];
+
+loop num : numbers {
+    print(num);
 }
 ```
 
 ### Loop with Starting Index
 
-By predefining a variable (e.g., *i*), you can start iterating from a specified index. This is useful for skipping initial elements.
+You can start iterating from a specified index by predefining a variable (e.g., *i*). This is useful for skipping initial elements.
 
 **Example:**
 
