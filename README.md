@@ -653,7 +653,7 @@ Functions in Cookie are defined using the `fun` keyword. They can either print a
 ```
 fun functionName(parameter_list) {  // Multi-parameter also works
     // function body
-    return expression;  // Optional, if a value is to be returned.
+    return statement;  // Optional, if a value is to be returned.
 }
 ```
 
