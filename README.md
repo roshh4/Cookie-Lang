@@ -231,7 +231,8 @@ cookie_extension/
     **Example:**
     
     ```
-    input("Enter your name: ");
+    int a;
+    input(a);
     ```
     
 - **inline();**
