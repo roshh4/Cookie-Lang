@@ -584,6 +584,7 @@ By predefining a variable (e.g., *i*), you can start iterating from a specified 
 int i = 2;
 loop i : numbers {
     print(i);
+}
 
 ```
 
