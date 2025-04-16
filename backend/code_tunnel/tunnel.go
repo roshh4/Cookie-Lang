@@ -39,7 +39,7 @@ func runHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     // Create a context with timeout (10 seconds)
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
     defer cancel()
 
     // Prepare docker run command
