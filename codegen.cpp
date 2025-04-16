@@ -702,6 +702,8 @@ if (strcmp(node->type, "CAST_CHAR") == 0) {
     return Builder.CreateAdd(L, R, "addtmp");
   }
   
+  
+  // 
   if (strcmp(node->type, "SUB") == 0) {
     Value *L = generateIR(node->left, currentFunction);
     Value *R = generateIR(node->right, currentFunction);
@@ -1255,8 +1257,7 @@ if (strcmp(node->type, "CAST_CHAR") == 0) {
     storeElements(node->left);
     return varPtr;
   }
-  
-  // --- Array Declarations for CHAR ---
+ //--- Array Declarations for CHAR ---
   if (strcmp(node->type, "DECL_ARRAY_CHAR") == 0) {
     std::string varName = node->value;
     Value *sizeVal = generateIR(node->left, currentFunction);

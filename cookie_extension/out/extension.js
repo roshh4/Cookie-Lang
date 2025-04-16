@@ -8,7 +8,7 @@ function activate(context) {
     console.log('Cookie extension is active!');
     // Define comment rules: ensure comment lines are always dull gray (#666666)
     const commentRule = {
-        "scope": "comment.line.cookie",
+        "sc`ope": "comment.line.cookie",
         "settings": { "foreground": "#666666" }
     };
     const punctuationCommentRule = {

@@ -2,8 +2,8 @@
   "name": "cookie-extension",
   "displayName": "Cookie Language Extension",
   "description": "A custom VS Code extension for the Cookie programming language with syntax highlighting, error detection, code snippets, and IntelliSense.",
-  "version": "7.0.0",
-  "publisher": "alph",
+  "version": "7.1.0",
+  "publisher": "AvinashS",
   "repository": {
     "type": "git",
     "url": "https://github.com/alphastar-avi/Goofy-Compiler"

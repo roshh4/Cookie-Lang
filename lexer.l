@@ -15,8 +15,8 @@
 "greater"[ \t\n]+"than"[ \t\n]+"equals"   { return GE; }
 "lesser"[ \t\n]+"than"                    { return LT; }
 "greater"[ \t\n]+"than"                   { return GT; }
-"equals"                                 { return EQ; }
-"=="                                     { return EQ; }
+"equals"                                  { return EQ; }
+"=="                                      { return EQ; }
 "not"[ \t\n]+"equals"                     { return NE; }
 "!="                                     { return NE; }
 "not"                                    { return NOT; }
