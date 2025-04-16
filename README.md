@@ -147,6 +147,9 @@ Cookie-Compiler/
 ---
 
 ## **VS Code Extension**
+## Cookie Extension
+
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/AvinashS.cookie-extension?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=AvinashS.cookie-extension) [ Click to download ]
 
 Cookie also includes a VS Code extension to provide syntax highlighting, code-snippets & IntelliSense.
 
@@ -203,15 +206,14 @@ cookie_extension/
 
      ---
 
---- 
 ---
 
 
-## Basic Syntax
+## Syntax
 
 ### Print, Input, and Inline
 
-- **print(expression);**
+- **print();**
     
     Prints the evaluated value of the expression. If used as `print();`, it simply prints a new line.
     
@@ -222,7 +224,7 @@ cookie_extension/
     print();  // Prints a new line.
     ```
     
-- **input(expression);**
+- **input();**
     
     Reads input from the user. The expression may serve as a prompt or an initializer for processing the input.
     
@@ -232,7 +234,7 @@ cookie_extension/
     input("Enter your name: ");
     ```
     
-- **inline(expression);**
+- **inline();**
     
     Prints the expression inline. This can be useful for immediate execution of a function or operation.
     
@@ -280,7 +282,7 @@ float pi = 3.14;     // Declaration of a floating-point number.
 
 ---
 
-## 3. Data Types
+## Data Types
 
 Cookie has five primary data types with auto-detection when using literals:
 
@@ -294,16 +296,16 @@ Cookie has five primary data types with auto-detection when using literals:
 
 - **Auto-detection:**
     
-    When you write a literal (e.g., `123` or `"Hello"`), Cookie automatically detects its type.
+    When you assign a literal to a variable using var, like var x = 10;, Cookie automatically detects its type.
     
 - **Type Conversions:**
     
     Explicit conversion is available using a cast-like syntax:
     
-    - `int(expression)`
-    - `float(expression)`
-    - `string(expression)`
-    - `char(expression)`
+    - `int()`
+    - `float()`
+    - `string()`
+    - `char()`
 
 These allow converting between compatible types.
 
@@ -326,13 +328,13 @@ float value = float("3.14");
 
 ---
 
-## 4. Operators
+## Operators
 
 ### Arithmetic Operators
 
 - **Addition:** `+`
-- **Subtraction:** ``
-- **Multiplication:** ``
+- **Subtraction:** `-`
+- **Multiplication:** `*`
 - **Division:** `/`
 
 **Example:**
@@ -378,7 +380,7 @@ if (flag and (x equals 5)) {
 
 ---
 
-## 5. Control Structures
+## Control Structures
 
 ### Simple If
 
@@ -429,6 +431,15 @@ if (x > 0) {
 Chains multiple conditions.
 
 **Syntax:**
+```
+if (condition) {
+    //statements
+} else if (condition) {
+    //statements
+} else {
+    //statements
+}
+```
 
 **Example:**
 
@@ -489,7 +500,7 @@ switch (x) {
 
 ---
 
-## 6. Arrays
+## Arrays
 
 Arrays are ordered collections of elements. In Cookie, arrays are declared with a specified type and support a built-in size function.
 
@@ -541,7 +552,7 @@ Executes a block a fixed number of times.
 **Syntax:**
 
 ```
-loop (expression) {
+loop range {
     // statements
 }
 ```
@@ -549,14 +560,35 @@ loop (expression) {
 **Example:**
 
 ```
-loop (5) {
+loop 5 {
     print("Iteration");
 }
 ```
 
 ### Range-based Loop
 
-Iterates over each element of an array.
+The loop starts with the value of the identifier (if its been assigned already, if not, its automatically assigned 1), and goes on till the given numeric value.
+
+**Syntax:**
+
+```
+loop identifier : range {
+    // statements
+}
+
+```
+
+**Example:**
+
+```
+loop i : numbers {
+    print(i);
+}
+```
+
+### Array-Based Loop
+
+The identifier takes on each value of the array sequentially.
 
 **Syntax:**
 
@@ -569,14 +601,16 @@ loop identifier : array {
 **Example:**
 
 ```
-loop i : numbers {
-    print(i);
+var numbers = [10, 20, 30];
+
+loop num : numbers {
+    print(num);
 }
 ```
 
 ### Loop with Starting Index
 
-By predefining a variable (e.g., *i*), you can start iterating from a specified index. This is useful for skipping initial elements.
+You can start iterating from a specified index by predefining a variable (e.g., *i*). This is useful for skipping initial elements.
 
 **Example:**
 
@@ -623,7 +657,7 @@ Functions in Cookie are defined using the `fun` keyword. They can either print a
 ```
 fun functionName(parameter_list) {  // Multi-parameter also works
     // function body
-    return expression;  // Optional, if a value is to be returned.
+    return statement;  // Optional, if a value is to be returned.
 }
 ```
 
