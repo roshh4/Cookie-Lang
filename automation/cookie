@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Absolute path to the automation directory
+AUTOMATION_DIR="/Users/avinash/Desktop/Goofy_complier/automation"
+
+# Run the Python script
+python3 "$AUTOMATION_DIR/src/cookie.py" "$@" 
