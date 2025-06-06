@@ -619,6 +619,7 @@ You can start iterating from a specified index by predefining a variable (e.g., 
 int i = 2;
 loop i : numbers {
     print(i);
+}
 
 ```
 
