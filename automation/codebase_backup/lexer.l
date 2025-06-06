@@ -50,7 +50,6 @@
 "size"                                   { return SIZE; }
 "true"                                   { yylval.str = strdup("true"); return BOOLEAN; }
 "false"                                  { yylval.str = strdup("false"); return BOOLEAN; }
-"cookie"                                  { return COOKIE; }
 "\."                                     { return DOT; }   /* New dot operator rule */
 ":"                                      { return ':'; }
 ","                                      { return COMMA; }

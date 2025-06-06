@@ -34,7 +34,7 @@ ASTNode *root;  // Global AST root.
 %token SIZE
 %token DOT
 %token INT_FROM_STRING FLOAT_FROM_STRING BOOL_FROM_STRING CHAR_FROM_STRING
-%token COOKIE
+
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -222,7 +222,6 @@ statement:
           { $$ = createASTNode("SWITCH", NULL, $3, createASTNode("SWITCH_BODY", NULL, $6, $7)); }
     /* Break statement */
     | BREAK SEMICOLON { $$ = createASTNode("BREAK", NULL, NULL, NULL); }
-    | COOKIE '(' ')' ';' { $$ = createASTNode("COOKIE_CALL", NULL, NULL, NULL); }
     ;
     
 
