@@ -1,44 +1,41 @@
-COMPLETE CODE:
 %{
 #include "parser.tab.h"
 #include <string.h>
 %}
 
+DIGIT [0-9]
+ID [a-zA-Z][a-zA-Z0-9]*
+
 %%
 
-[a-zA-Z_][a-zA-Z0-9_]*  { yylval.str = strdup(yytext); return IDENTIFIER; }
-[0-9]+                  { yylval.num = atoi(yytext); return INTEGER; }
-\"[^"]*\"              { 
-                            yylval.str = strdup(yytext);
-                            /* Remove quotes */
-                            memmove(yylval.str, yylval.str + 1, strlen(yylval.str) - 2);
-                            yylval.str[strlen(yylval.str) - 2] = '\0';
-                            return STRING; 
-                        }
-"+"                     { return PLUS; }
-"-"                     { return MINUS; }
-"*"                     { return TIMES; }
-"/"                     { return DIVIDE; }
-"="                     { return ASSIGN; }
-"("                     { return LPAREN; }
-")"                     { return RPAREN; }
-"{"                     { return LBRACE; }
-"}"                     { return RBRACE; }
-";"                     { return SEMICOLON; }
-"print"                 { return PRINT; }
-"if"                    { return IF; }
-"else"                  { return ELSE; }
-"while"                 { return WHILE; }
-"return"                { return RETURN; }
-"=="                    { return EQ; }
-"!="                    { return NEQ; }
-"<"                     { return LT; }
-">"                     { return GT; }
-"<="                    { return LTE; }
-">="                    { return GTE; }
-[ \t\n]                 ; /* Ignore whitespace */
-.                       { printf("Illegal character: %s\n", yytext); }
-"cookie"                { return COOKIE; } // New Token
+[ \t\n]                 ;
+"int"                   return INT;
+"return"                return RETURN;
+{DIGIT}+                yylval.ival = atoi(yytext); return NUMBER;
+{ID}                    yylval.sval = strdup(yytext); return IDENTIFIER;
+"("                     return LPAREN;
+")"                     return RPAREN;
+"{"                     return LBRACE;
+"}"                     return RBRACE;
+";"                     return SEMICOLON;
+"="                     return EQUAL;
+"+"                     return PLUS;
+"-"                     return MINUS;
+"*"                     return MULTIPLY;
+"/"                     return DIVIDE;
+"=="                    return EQUALS;
+"!="                    return NOTEQUALS;
+"<"                     return LESSTHAN;
+">"                     return GREATERTHAN;
+"<="                    return LESSEQUAL;
+">="                    return GREATEREQUAL;
+"if"                    return IF;
+"else"                  return ELSE;
+"while"                 return WHILE;
+"print"                 return PRINT;
+"cookie"                return COOKIE;
+.                       return yytext[0];
+
 %%
 
 int yywrap() {

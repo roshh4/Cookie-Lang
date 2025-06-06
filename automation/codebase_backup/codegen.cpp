@@ -1,129 +1,102 @@
-COMPLETE CODE:
 #include <iostream>
-#include <fstream>
+#include <cstdlib>
 #include "ast.h"
 
-static int labelCount = 0;
+extern int yyparse();
+extern ASTNode *root;
 
-std::string generateLabel() {
-    return "L" + std::to_string(labelCount++);
+extern "C" {
+    extern int print_int(int value);
 }
 
-void generateCode(ASTNode* node, std::ofstream& outputFile) {
-    if (!node) return;
+int evaluate(ASTNode *node) {
+    if (node == NULL) {
+        return 0;
+    }
 
     switch (node->type) {
-        case NODE_PROGRAM:
-            generateCode(node->data.program.statements, outputFile);
-            break;
-        case NODE_STATEMENT_LIST:
-            generateCode(node->data.statement_list.statement, outputFile);
-            generateCode(node->data.statement_list.next, outputFile);
-            break;
-        case NODE_ASSIGNMENT:
-            outputFile << "push " << node->data.assignment.identifier << std::endl;
-            generateCode(node->data.assignment.expression, outputFile);
-            outputFile << "pop " << node->data.assignment.identifier << std::endl;
-            break;
-        case NODE_IDENTIFIER:
-            outputFile << "push " << node->data.identifier << std::endl;
-            break;
-        case NODE_INTEGER:
-            outputFile << "push " << node->data.integer << std::endl;
-            break;
-        case NODE_STRING:
-            outputFile << "push \"" << node->data.string << "\"" << std::endl;
-            break;
-        case NODE_BINARY_OP: {
-            generateCode(node->data.binary_op.left, outputFile);
-            generateCode(node->data.binary_op.right, outputFile);
-            outputFile << "pop rbx" << std::endl;
-            outputFile << "pop rax" << std::endl;
-            if (node->data.binary_op.op == "+") {
-                outputFile << "add rax, rbx" << std::endl;
-            } else if (node->data.binary_op.op == "-") {
-                outputFile << "sub rax, rbx" << std::endl;
-            } else if (node->data.binary_op.op == "*") {
-                outputFile << "mul rbx" << std::endl;
-            } else if (node->data.binary_op.op == "/") {
-                outputFile << "div rbx" << std::endl;
-            } else if (node->data.binary_op.op == "==") {
-                outputFile << "cmp rax, rbx" << std::endl;
-                outputFile << "je " << generateLabel() << std::endl;
-            } else if (node->data.binary_op.op == "!=") {
-                outputFile << "cmp rax, rbx" << std::endl;
-                outputFile << "jne " << generateLabel() << std::endl;
-            } else if (node->data.binary_op.op == "<") {
-                outputFile << "cmp rax, rbx" << std::endl;
-                outputFile << "jl " << generateLabel() << std::endl;
-            } else if (node->data.binary_op.op == ">") {
-                outputFile << "cmp rax, rbx" << std::endl;
-                outputFile << "jg " << generateLabel() << std::endl;
-            } else if (node->data.binary_op.op == "<=") {
-                outputFile << "cmp rax, rbx" << std::endl;
-                outputFile << "jle " << generateLabel() << std::endl;
-            } else if (node->data.binary_op.op == ">=") {
-                outputFile << "cmp rax, rbx" << std::endl;
-                outputFile << "jge " << generateLabel() << std::endl;
+        case AST_NUMBER:
+            return node->value;
+        case AST_ADD:
+            return evaluate(node->children[0]) + evaluate(node->children[1]);
+        case AST_SUBTRACT:
+            return evaluate(node->children[0]) - evaluate(node->children[1]);
+        case AST_MULTIPLY:
+            return evaluate(node->children[0]) * evaluate(node->children[1]);
+        case AST_DIVIDE:
+            {
+                int divisor = evaluate(node->children[1]);
+                if (divisor == 0) {
+                    std::cerr << "Error: Division by zero\n";
+                    exit(1);
+                }
+                return evaluate(node->children[0]) / divisor;
             }
-            outputFile << "push rax" << std::endl;
-            break;
-        }
-        case NODE_PRINT:
-            generateCode(node->data.expression, outputFile);
-            outputFile << "call print" << std::endl;
-            break;
-        case NODE_IF: {
-            std::string elseLabel = generateLabel();
-            std::string endIfLabel = generateLabel();
-            generateCode(node->data.if_statement.condition, outputFile);
-            outputFile << "pop rax" << std::endl;
-            outputFile << "test rax, rax" << std::endl;
-            if (node->data.if_statement.else_block) {
-                outputFile << "jz " << elseLabel << std::endl;
-                generateCode(node->data.if_statement.then_block, outputFile);
-                outputFile << "jmp " << endIfLabel << std::endl;
-                outputFile << elseLabel << ":" << std::endl;
-                generateCode(node->data.if_statement.else_block, outputFile);
+        case AST_EQUALS:
+            return evaluate(node->children[0]) == evaluate(node->children[1]);
+        case AST_NOTEQUALS:
+            return evaluate(node->children[0]) != evaluate(node->children[1]);
+        case AST_LESSTHAN:
+            return evaluate(node->children[0]) < evaluate(node->children[1]);
+        case AST_GREATERTHAN:
+            return evaluate(node->children[0]) > evaluate(node->children[1]);
+        case AST_LESSEQUAL:
+            return evaluate(node->children[0]) <= evaluate(node->children[1]);
+        case AST_GREATEREQUAL:
+            return evaluate(node->children[0]) >= evaluate(node->children[1]);
+        case AST_IF:
+            if (evaluate(node->children[0])) {
+                evaluate(node->children[1]);
+            }
+            return 0;
+        case AST_IF_ELSE:
+            if (evaluate(node->children[0])) {
+                evaluate(node->children[1]);
             } else {
-                outputFile << "jz " << endIfLabel << std::endl;
-                generateCode(node->data.if_statement.then_block, outputFile);
+                evaluate(node->children[2]);
             }
-            outputFile << endIfLabel << ":" << std::endl;
-            break;
-        }
-        case NODE_WHILE: {
-            std::string loopStart = generateLabel();
-            std::string loopEnd = generateLabel();
-            outputFile << loopStart << ":" << std::endl;
-            generateCode(node->data.while_loop.condition, outputFile);
-            outputFile << "pop rax" << std::endl;
-            outputFile << "test rax, rax" << std::endl;
-            outputFile << "jz " << loopEnd << std::endl;
-            generateCode(node->data.while_loop.body, outputFile);
-            outputFile << "jmp " << loopStart << std::endl;
-            outputFile << loopEnd << ":" << std::endl;
-            break;
-        }
-        case NODE_BLOCK:
-            generateCode(node->data.block.statements, outputFile);
-            break;
-        case NODE_FUNCTION_DEF:
-            outputFile << node->data.function_def.identifier << ":" << std::endl;
-            generateCode(node->data.function_def.body, outputFile);
-            outputFile << "ret" << std::endl;
-            break;
-        case NODE_FUNCTION_CALL:
-            outputFile << "call " << node->data.function_call.identifier << std::endl;
-            break;
-        case NODE_RETURN:
-            generateCode(node->data.expression, outputFile);
-            outputFile << "ret" << std::endl;
-            break;
-        case NODE_COOKIE:
-            outputFile << "call cookie_function" << std::endl;
-            break;
+            return 0;
+        case AST_WHILE:
+            while (evaluate(node->children[0])) {
+                evaluate(node->children[1]);
+            }
+            return 0;
+        case AST_PRINT:
+            print_int(evaluate(node->children[0]));
+            return 0;
+        case AST_RETURN:
+            return evaluate(node->children[0]);
+        case AST_STATEMENTS:
+            evaluate(node->children[0]);
+            evaluate(node->children[1]);
+            return 0;
+        case AST_ASSIGN:
+            // In a real compiler, this would involve symbol table lookup and assignment
+            std::cerr << "Error: Assignment not implemented in evaluation\n";
+            exit(1);
+            return 0;
+        case AST_IDENTIFIER:
+            std::cerr << "Error: Identifier evaluation not implemented\n";
+            exit(1);
+            return 0;
+        case AST_COOKIE:
+            for (int i = 0; i < 10; i++) {
+                print_int(42);
+            }
+            return 0;
         default:
-            std::cerr << "Unknown node type for code generation" << std::endl;
+            std::cerr << "Error: Unknown AST node type\n";
+            exit(1);
     }
+}
+
+int main() {
+    if (yyparse() == 0) {
+        evaluate(root);
+    } else {
+        std::cerr << "Error: Parsing failed\n";
+        return 1;
+    }
+
+    return 0;
 }

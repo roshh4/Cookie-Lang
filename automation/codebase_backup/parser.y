@@ -1,110 +1,174 @@
-COMPLETE CODE:
 %{
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast.h"
 
-extern int yylex();
-extern char* yytext;
-void yyerror(const char *s);
+extern FILE *yyin;
 
-ASTNode* programNode;
+void yyerror(const char *s);
+extern int yylex();
+
+ASTNode *root = NULL;
 %}
 
 %union {
-    int num;
-    char* str;
-    ASTNode* node;
-}
+    int ival;
+    char *sval;
+    ASTNode *node;
+};
 
-%token <str> IDENTIFIER STRING
-%token <num> INTEGER
-%token PLUS MINUS TIMES DIVIDE ASSIGN
-%token LPAREN RPAREN LBRACE RBRACE SEMICOLON
-%token PRINT IF ELSE WHILE RETURN
-%token EQ NEQ LT GT LTE GTE
-%token <node> STATEMENT_LIST
-%token COOKIE // New Token
+%token <ival> NUMBER
+%token <sval> IDENTIFIER
+%token INT RETURN LPAREN RPAREN LBRACE RBRACE SEMICOLON EQUAL PLUS MINUS MULTIPLY DIVIDE EQUALS NOTEQUALS LESSTHAN GREATERTHAN LESSEQUAL GREATEREQUAL IF ELSE WHILE PRINT
+%token COOKIE
 
-%type <node> program statement_list statement assignment expression print_statement if_statement while_statement block function_def function_call return_statement
-%type <node> bin_op condition
+%type <node> program statement statements expression assignment if_statement while_statement print_statement
 
 %%
 
-program     : statement_list { programNode = createProgramNode($1, 1); }
-            ;
+program : statements { root = $1; }
+        ;
 
-statement_list
-            : statement SEMICOLON statement_list { $$ = createStatementListNode($1, $3, yylineno); }
-            | statement SEMICOLON { $$ = createStatementListNode($1, NULL, yylineno); }
-            ;
+statements: statement { $$ = $1; }
+          | statements statement {
+                ASTNode *newNode = createASTNode(AST_STATEMENTS);
+                newNode->children[0] = $1;
+                newNode->children[1] = $2;
+                $$ = newNode;
+            }
+          ;
 
-statement   : assignment
-            | print_statement
-            | if_statement
-            | while_statement
-            | block
-            | function_def
-            | function_call SEMICOLON { $$ = $1; }
-            | return_statement
-            | COOKIE SEMICOLON { $$ = createCookieNode(yylineno); } // New Grammar Rule
-            ;
+statement: expression SEMICOLON { $$ = $1; }
+         | assignment SEMICOLON { $$ = $1; }
+         | if_statement
+         | while_statement
+         | print_statement
+         | COOKIE LPAREN RPAREN SEMICOLON {
+                ASTNode *newNode = createASTNode(AST_COOKIE);
+                $$ = newNode;
+            }
+         | RETURN expression SEMICOLON {
+              ASTNode *newNode = createASTNode(AST_RETURN);
+              newNode->children[0] = $2;
+              $$ = newNode;
+          }
+         | LBRACE statements RBRACE { $$ = $2; }
+         ;
 
-assignment  : IDENTIFIER ASSIGN expression { $$ = createAssignmentNode($1, $3, yylineno); }
-            ;
+assignment: IDENTIFIER EQUAL expression {
+              ASTNode *newNode = createASTNode(AST_ASSIGN);
+              newNode->name = $1;
+              newNode->children[0] = $3;
+              $$ = newNode;
+          }
+          ;
 
-expression  : INTEGER { $$ = createIntegerNode($1, yylineno); }
-            | IDENTIFIER { $$ = createIdentifierNode($1, yylineno); }
-            | STRING { $$ = createStringNode($1, yylineno); }
-            | LPAREN expression RPAREN { $$ = $2; }
-            | expression PLUS  expression { $$ = createBinaryOpNode("+", $1, $3, yylineno); }
-            | expression MINUS expression { $$ = createBinaryOpNode("-", $1, $3, yylineno); }
-            | expression TIMES expression { $$ = createBinaryOpNode("*", $1, $3, yylineno); }
-            | expression DIVIDE expression { $$ = createBinaryOpNode("/", $1, $3, yylineno); }
-            | bin_op
-            ;
+if_statement: IF LPAREN expression RPAREN statement %prec ELSE {
+                  ASTNode *newNode = createASTNode(AST_IF);
+                  newNode->children[0] = $3;
+                  newNode->children[1] = $5;
+                  $$ = newNode;
+              }
+              | IF LPAREN expression RPAREN statement ELSE statement {
+                  ASTNode *newNode = createASTNode(AST_IF_ELSE);
+                  newNode->children[0] = $3;
+                  newNode->children[1] = $5;
+                  newNode->children[2] = $7;
+                  $$ = newNode;
+              }
+              ;
 
-bin_op      : expression EQ expression { $$ = createBinaryOpNode("==", $1, $3, yylineno); }
-            | expression NEQ expression { $$ = createBinaryOpNode("!=", $1, $3, yylineno); }
-            | expression LT expression  { $$ = createBinaryOpNode("<", $1, $3, yylineno); }
-            | expression GT expression  { $$ = createBinaryOpNode(">", $1, $3, yylineno); }
-            | expression LTE expression { $$ = createBinaryOpNode("<=", $1, $3, yylineno); }
-            | expression GTE expression { $$ = createBinaryOpNode(">=", $1, $3, yylineno); }
-            ;
+while_statement: WHILE LPAREN expression RPAREN statement {
+                   ASTNode *newNode = createASTNode(AST_WHILE);
+                   newNode->children[0] = $3;
+                   newNode->children[1] = $5;
+                   $$ = newNode;
+               }
+               ;
 
-print_statement
-            : PRINT expression { $$ = createPrintNode($2, yylineno); }
-            ;
+print_statement: PRINT LPAREN expression RPAREN SEMICOLON {
+                     ASTNode *newNode = createASTNode(AST_PRINT);
+                     newNode->children[0] = $3;
+                     $$ = newNode;
+                 }
+                 ;
 
-if_statement
-            : IF LPAREN condition RPAREN block { $$ = createIfNode($3, $5, NULL, yylineno); }
-            | IF LPAREN condition RPAREN block ELSE block { $$ = createIfNode($3, $5, $7, yylineno); }
-            ;
-
-condition   : expression { $$ = $1; }
-            ;
-
-while_statement
-            : WHILE LPAREN condition RPAREN block { $$ = createWhileNode($3, $5, yylineno); }
-            ;
-
-block       : LBRACE statement_list RBRACE { $$ = createBlockNode($2, yylineno); }
-            ;
-
-function_def: IDENTIFIER LPAREN RPAREN block { $$ = createFunctionDefNode($1, NULL, $4, yylineno); }
-            ;
-
-function_call
-            : IDENTIFIER LPAREN RPAREN { $$ = createFunctionCallNode($1, NULL, yylineno); }
-            ;
-
-return_statement
-            : RETURN expression { $$ = createReturnNode($2, yylineno); }
-            ;
+expression: NUMBER {
+              ASTNode *newNode = createASTNode(AST_NUMBER);
+              newNode->value = $1;
+              $$ = newNode;
+          }
+          | IDENTIFIER {
+              ASTNode *newNode = createASTNode(AST_IDENTIFIER);
+              newNode->name = $1;
+              $$ = newNode;
+          }
+          | expression PLUS expression {
+              ASTNode *newNode = createASTNode(AST_ADD);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression MINUS expression {
+              ASTNode *newNode = createASTNode(AST_SUBTRACT);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression MULTIPLY expression {
+              ASTNode *newNode = createASTNode(AST_MULTIPLY);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression DIVIDE expression {
+              ASTNode *newNode = createASTNode(AST_DIVIDE);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression EQUALS expression {
+              ASTNode *newNode = createASTNode(AST_EQUALS);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression NOTEQUALS expression {
+              ASTNode *newNode = createASTNode(AST_NOTEQUALS);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression LESSTHAN expression {
+              ASTNode *newNode = createASTNode(AST_LESSTHAN);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression GREATERTHAN expression {
+              ASTNode *newNode = createASTNode(AST_GREATERTHAN);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+          $$ = newNode;
+          }
+          | expression LESSEQUAL expression {
+              ASTNode *newNode = createASTNode(AST_LESSEQUAL);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | expression GREATEREQUAL expression {
+              ASTNode *newNode = createASTNode(AST_GREATEREQUAL);
+              newNode->children[0] = $1;
+              newNode->children[1] = $3;
+              $$ = newNode;
+          }
+          | LPAREN expression RPAREN { $$ = $2; }
+          ;
 
 %%
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s at line %d near '%s'\n", s, yylineno, yytext);
+    fprintf(stderr, "Error: %s at line %d\n", s, yylineno);
     exit(1);
 }
