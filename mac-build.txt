@@ -13,4 +13,4 @@ lli -load ./libruntime.so output.ll
 ------------------------------------------------------------------------------------------
 
 to remove build files:
-rm -f ast.o parser.tab.c parser.tab.h parser.tab.o lex.yy.c lex.yy.o codegen.o compiler output.ll libruntime.so`
+rm -f ast.o parser.tab.c parser.tab.h parser.tab.o lex.yy.c lex.yy.o codegen.o compiler output.ll libruntime.so
