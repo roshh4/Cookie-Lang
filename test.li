@@ -1,9 +1,0 @@
-fun sum ( int a , int b ){
-  int x = a + b ;
-  return(x);
-}
-
-int a = 10;
-int b = 20;
-int y = sum ( a , b );
-print(y);
