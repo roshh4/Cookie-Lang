@@ -1,23 +1,37 @@
 #ifndef AST_H
 #define AST_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+typedef enum {
+    NUMBER_NODE,
+    IDENTIFIER_NODE,
+    BINARY_OP_NODE
+} NodeType;
+
+typedef enum {
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE
+} OperationType;
 
 typedef struct ASTNode {
-    char* type;              // Node type (e.g. "NUMBER", "ASSIGN_INT", "IF", "INPUT", etc.)
-    char* value;             // Extra string value (identifier name or literal)
-    struct ASTNode* left;    // Left child (used for binary operators, list nodes, etc.)
-    struct ASTNode* right;   // Right child (used for binary operators, list nodes, etc.)
+    NodeType type;
+    int line_number;
+    union {
+        int number_value;
+        char *identifier_name;
+        struct {
+            OperationType op;
+            struct ASTNode *left;
+            struct ASTNode *right;
+        } binary_op;
+    } data;
 } ASTNode;
 
-ASTNode* createASTNode(char* type, char* value, ASTNode* left, ASTNode* right);
-void printAST(ASTNode* node, int level);
-void freeAST(ASTNode* node);
+extern int yylineno;
 
-#ifdef __cplusplus
-}
-#endif
+ASTNode *createNumberNode(int value);
+ASTNode *createIdentifierNode(char *name);
+ASTNode *createBinaryOpNode(OperationType op, ASTNode *left, ASTNode *right);
 
 #endif

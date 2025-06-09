@@ -1,33 +1,46 @@
-#include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ast.h"
 
-ASTNode* createASTNode(char* type, char* value, ASTNode* left, ASTNode* right) {
-    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
-    node->type = strdup(type);
-    node->value = value ? strdup(value) : NULL;
-    node->left = left;
-    node->right = right;
+ASTNode *createNumberNode(int value) {
+    ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));
+    if (!node) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    node->type = NUMBER_NODE;
+    node->line_number = yylineno;
+    node->data.number_value = value;
     return node;
 }
 
-void printAST(ASTNode* node, int level) {
-    if (!node) return;
-    for (int i = 0; i < level; i++) {
-        printf("  ");
+ASTNode *createIdentifierNode(char *name) {
+    ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));
+    if (!node) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
     }
-    printf("%s: %s\n", node->type, node->value ? node->value : "NULL");
-    printAST(node->left, level + 1);
-    printAST(node->right, level + 1);
+    node->type = IDENTIFIER_NODE;
+    node->line_number = yylineno;
+    node->data.identifier_name = strdup(name);
+    if (!node->data.identifier_name) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    return node;
 }
 
-void freeAST(ASTNode* node) {
-    if (!node) return;
-    free(node->type);
-    if (node->value)
-        free(node->value);
-    freeAST(node->left);
-    freeAST(node->right);
-    free(node);
+ASTNode *createBinaryOpNode(OperationType op, ASTNode *left, ASTNode *right) {
+    ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));
+    if (!node) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    node->type = BINARY_OP_NODE;
+    node->line_number = yylineno;
+    node->data.binary_op.op = op;
+    node->data.binary_op.left = left;
+    node->data.binary_op.right = right;
+    return node;
 }
