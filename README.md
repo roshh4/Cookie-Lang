@@ -159,6 +159,13 @@ Cookie-Compiler/
 
 Cookie also includes a VS Code extension to provide syntax highlighting, code-snippets & IntelliSense.
 
+
+
+https://github.com/user-attachments/assets/74c1558e-02f0-4b6b-80a5-8fda8a34efe4
+
+
+
+
 ### **The repo already includes the .vsix complied package so you can install it simply by running:**
 ```bash
 code --install-extension cookie_extension-7.0.0.vsix
