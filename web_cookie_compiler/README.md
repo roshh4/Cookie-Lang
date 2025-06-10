@@ -36,7 +36,9 @@ Activating Emscripten (emsdk_env.ps1 or emsdk_env.sh) is session-based — it on
 You will need to run this command again in any new terminal session where you want to use emcc.
 
 
-##Running the Server
+
+
+## Running the Server
 
 1. Open a new terminal in the directory where server.go is located.
 
