@@ -160,10 +160,7 @@ Cookie also includes a VS Code extension to provide syntax highlighting, code-sn
 
 
 
-
-https://github.com/user-attachments/assets/bc6bd744-7591-4dcf-98a5-e637c50ed16c
-
-
+https://github.com/user-attachments/assets/cdf93115-c6a2-4847-a0cd-f65ce13e6b15
 
 
 
