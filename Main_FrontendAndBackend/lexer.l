@@ -8,8 +8,8 @@
 %option noyywrap
 
 %%
-"//".*                                   { /* Ignore single-line comment starting with '//' */ }
-"comment:"[^\n]*                         { /* Ignore comment starting with 'comment:' */ }
+"//".*                                   {  }
+"comment:"[^\n]*                         {  }
 "input"                                  { return INPUT; }
 "lesser"[ \t\n]+"than"[ \t\n]+"equals"    { return LE; }
 "greater"[ \t\n]+"than"[ \t\n]+"equals"   { return GE; }
@@ -50,7 +50,7 @@
 "size"                                   { return SIZE; }
 "true"                                   { yylval.str = strdup("true"); return BOOLEAN; }
 "false"                                  { yylval.str = strdup("false"); return BOOLEAN; }
-"\."                                     { return DOT; }   /* New dot operator rule */
+"\."                                     { return DOT; }   
 ":"                                      { return ':'; }
 ","                                      { return COMMA; }
 "<"                                      { return LT; }
@@ -74,5 +74,5 @@
 [a-zA-Z_][a-zA-Z0-9_]*                   { yylval.str = strdup(yytext); return IDENTIFIER; }
 "cookie"                                 { return COOKIE; }
 [ \t\n]+                                 ;
-.                                        { /* ignore any other character */ }
+.                                        { }
 %%

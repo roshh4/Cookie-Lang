@@ -90,6 +90,9 @@
 
     <script>
         let outputBuffer = '';
+        let outputSet = new Set();
+        let outputLines = [];
+        let printCalls = 0;
 
         // Minimal Cookie-to-C transpiler
         function cookieToC(cookieCode) {
@@ -227,8 +230,12 @@
             const cCode = `#include <stdio.h>\nint main() {\n${cCodeBody}\nreturn 0;\n}`;
             console.log("Generated C Code:\n", cCode); // Diagnostic Log
 
+            const printCount = (cCode.match(/printf\s*\(/g) || []).length;
+            let outputLines = [];
+            let printCalls = 0;
+
             try {
-                // 2. Send C code to backend as before
+                // 2. Send C code to backend (Go server) as before
                 const response = await fetch('/compile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -238,26 +245,33 @@
                 if (!response.ok) throw new Error('Compilation failed');
 
                 // 3. Load and run the compiled WASM module
-                const module = await import('./public/hello.js');
+                const module = await import('./public/cookie.js');
                 const instance = await module.default({
                     print: function(text) {
-                        outputBuffer += text;
-                        console.log("Emscripten print text:", text); // Diagnostic Log
+                        if (printCalls < printCount) {
+                            // If the output does not end with a newline, add one
+                            if (!text.endsWith('\n')) {
+                                outputLines.push(text + '\n');
+                            } else {
+                                outputLines.push(text);
+                            }
+                            printCalls++;
+                        }
                     }
                 });
 
                 instance._main();
-                console.log("Final outputBuffer content:\n", outputBuffer); // Diagnostic Log
-                output.innerText = outputBuffer || 'No output generated.'; // Use innerText for correct newline rendering
+                output.innerText = outputLines.join('');
             } catch (error) {
-                output.textContent = `Error: ${error.message}`;
+                output.textContent = `Error: ${error.message}`
             }
         }
 
         document.getElementById('compile').addEventListener('click', () => {
+            // Reset outputLines and printCalls for each run!
             const code = document.getElementById('editor').value;
             compileAndRun(code);
         });
     </script>
 </body>
-</html> 
+</html>

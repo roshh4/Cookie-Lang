@@ -1,0 +1,27 @@
+{
+    "name": "web-cookie-compiler",
+    "version": "1.0.0",
+    "description": "Web-based cookie compiler using Emscripten",
+    "main": "index.js",
+    "scripts": {
+      "start": "node server.js",
+      "build": "emcc -o public/compiler.js src/compiler.c -s WASM=1 -s EXPORTED_FUNCTIONS='[\"_main\"]' -s EXPORTED_RUNTIME_METHODS='[\"ccall\", \"cwrap\"]' -s ALLOW_MEMORY_GROWTH=1",
+      "dev": "nodemon server.js"
+    },
+    "dependencies": {
+      "express": "^4.18.2",
+      "body-parser": "^1.20.2",
+      "cors": "^2.8.5",
+      "emscripten-sdk": "^3.1.45",
+      "monaco-editor": "^0.45.0",
+      "socket.io": "^4.7.2"
+    },
+    "devDependencies": {
+      "nodemon": "^3.0.2",
+      "eslint": "^8.56.0",
+      "prettier": "^3.1.1"
+    },
+    "engines": {
+      "node": ">=18.0.0"
+    }
+  }
