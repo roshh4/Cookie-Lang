@@ -186,6 +186,15 @@ Function* getStrToIntFunction() {
   return f;
 }
 
+Function* getCookieFunction() {
+  Function *cookieFunc = TheModule->getFunction("print_cookie");
+  if (!cookieFunc) {
+    FunctionType* funcType = FunctionType::get(Type::getVoidTy(Context), false);
+    cookieFunc = Function::Create(funcType, Function::ExternalLinkage, "print_cookie", TheModule);
+  }
+  return cookieFunc;
+}
+
 // --- New branch for INPUT_EXPR ---
 // This branch supports input statements with expressions (such as input(arr[4]);)
 // without changing any of the old lines.
@@ -271,7 +280,13 @@ void generateGlobalStatements(ASTNode* node, Function* mainFunc) {
   } else if (strcmp(node->type, "FUNC_DEF") == 0) {
     return;
   } else {
-    generateIR(node, mainFunc);
+    Value* result = generateIR(node, mainFunc);
+    if (result) {
+      // If the result is a call instruction, we need to ensure it's not optimized away
+      if (CallInst* call = dyn_cast<CallInst>(result)) {
+        call->setTailCall(false);
+      }
+    }
   }
 }
 
@@ -1769,6 +1784,11 @@ if (strcmp(node->type, "CAST_CHAR") == 0) {
        report_fatal_error("METHOD_CALL: Unknown method");
     }
 }
+
+  if (strcmp(node->type, "COOKIE") == 0) {
+    Function* cookieFunc = getCookieFunction();
+    return Builder.CreateCall(cookieFunc);
+  }
 
   return nullptr;
 }

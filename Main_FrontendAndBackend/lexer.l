@@ -72,6 +72,7 @@
 "'"[^\']"'"                              { yylval.str = strdup(yytext); return CHAR_LITERAL; }
 \"[^\"]*\"                               { yylval.str = strdup(yytext); return STRING_LITERAL; }
 [a-zA-Z_][a-zA-Z0-9_]*                   { yylval.str = strdup(yytext); return IDENTIFIER; }
+"cookie"                                 { return COOKIE; }
 [ \t\n]+                                 ;
 .                                        { }
 %%

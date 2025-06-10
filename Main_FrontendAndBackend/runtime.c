@@ -131,3 +131,10 @@ int string_to_int(const char* s) {
     }
     return (int)val;
 }
+
+// Prints "cookie" 10 times
+void print_cookie() {
+    for (int i = 0; i < 10; i++) {
+        printf("cookie\n");
+    }
+}
