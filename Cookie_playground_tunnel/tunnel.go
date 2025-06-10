@@ -8,11 +8,27 @@ import (
     "os"
     "os/exec"
     "path/filepath"
+    "encoding/json"
 )
+
+type CodePayload struct {
+    Code string `json:"code"`
+}
 
 func main() {
     // Create a simple HTTP server
     http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
+        // Set CORS headers
+        w.Header().Set("Access-Control-Allow-Origin", "https://alphastar-avi.github.io")
+        w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+        // Handle preflight OPTIONS requests
+        if r.Method == http.MethodOptions {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+
         // Only allow POST requests
         if r.Method != http.MethodPost {
             http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
@@ -45,8 +61,16 @@ func main() {
                 http.Error(w, "Failed to read file", http.StatusInternalServerError)
                 return
             }
+        } else if r.Header.Get("Content-Type") == "application/json" {
+            var payload CodePayload
+            err = json.NewDecoder(r.Body).Decode(&payload)
+            if err != nil {
+                http.Error(w, "Failed to decode JSON payload", http.StatusBadRequest)
+                return
+            }
+            code = []byte(payload.Code)
         } else {
-            // Read the code directly from request body
+            // Read the code directly from request body (fallback for text/plain)
             code, err = io.ReadAll(r.Body)
             if err != nil {
                 http.Error(w, "Failed to read code", http.StatusBadRequest)
