@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to cookie</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .output-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #editor {
+            flex: 1;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: none;
+            background-color: #f5f5f5;
+        }
+        #output {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            overflow-y: auto;
+        }
+        .button-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to cookie</h1>
+    <div class="container">
+        <div class="editor-container">
+            <textarea id="editor" placeholder="Write your C code here..."></textarea>
+        </div>
+        <div class="output-container">
+            <div id="output">Output will appear here...</div>
+        </div>
+    </div>
+    <div class="button-container">
+        <button id="compile">Compile & Run</button>
+    </div>
+
+    <script>
+        let outputBuffer = '';
+
+        // Minimal Cookie-to-C transpiler
+        function cookieToC(cookieCode) {
+            const lines = cookieCode.split('\n'); // Split by actual newlines
+            let cLines = [];
+            let i = 0; // Initialize line index for outer loop
+
+            // Helper function to process expressions, including mapping Cookie operators to C
+            function processExpression(expr) {
+                let processed = expr;
+                // Order matters for multi-word operators
+                processed = processed.replace(/greater than equals/g, '>=');
+                processed = processed.replace(/lesser than equals/g, '<=');
+                processed = processed.replace(/is equals/g, '==');
+                processed = processed.replace(/not equals/g, '!=');
+                processed = processed.replace(/greater than/g, '>');
+                processed = processed.replace(/lesser than/g, '<');
+                // For the `=` operator: if user meant comparison in an `if` context, map to `==`
+                // This is a common simplification in simple languages, though strictly in C `=` is assignment.
+                // If this causes issues or requires strict assignment, we can adjust.
+                processed = processed.replace(/=/g, '=='); // IMPORTANT: This might be ambiguous with assignment, adjust if needed
+                return processed;
+            }
+
+            while (i < lines.length) {
+                let line = lines[i].trim();
+
+                // Skip empty lines and comments
+                if (line.length === 0 || line.startsWith('//')) {
+                    i++;
+                    continue;
+                }
+
+                // Variable declaration: int a = 5;
+                if (line.startsWith('int ') && line.includes('=')) {
+                    cLines.push(line.replace(/;?$/, ';'));
+                }
+                // Print statement: print(expr); (expr can be number, string, variable, or expression)
+                else if (line.startsWith('print(') && line.endsWith(';')) {
+                    const match = line.match(/^print\s*\((.*)\)\s*;?$/);
+                    if (match && match[1]) {
+                        const expr = match[1].trim();
+                        // Check if the expression is a string literal (starts and ends with ")
+                        if (expr.startsWith('"') && expr.endsWith('"')) {
+                            cLines.push(`printf("%s\\n", ${expr});`); // \\n becomes \n in C
+                        } else {
+                            // Assume it's an integer or variable for %d
+                            cLines.push(`printf("%d\\n", ${expr});`); // \\n becomes \n in C
+                        }
+                    } else {
+                        cLines.push('// Error: Malformed print statement: ' + line);
+                    }
+                }
+                // Loop: loop N { ... }
+                else if (line.startsWith('loop ') && line.endsWith('{')) {
+                    const loopCountMatch = line.match(/^loop\s+(\d+)\s*\{\s*$/);
+                    if (loopCountMatch && loopCountMatch[1]) {
+                        const count = parseInt(loopCountMatch[1]);
+                        const currentLoopVar = `__loop_i_${Date.now()}`; // Unique loop var name
+                        cLines.push(`for (int ${currentLoopVar} = 0; ${currentLoopVar} < ${count}; ++${currentLoopVar}) {`);
+                        
+                        let braceCount = 1;
+                        let loopBodyLines = [];
+                        let j = i + 1; // Start scanning from the line after 'loop ... {'
+
+                        while (j < lines.length && braceCount > 0) {
+                            const currentBodyLine = lines[j];
+                            if (currentBodyLine.trim() === '{') braceCount++;
+                            else if (currentBodyLine.trim() === '}') braceCount--;
+
+                            if (braceCount > 0) { // Add lines to body until the *last* closing brace for this loop
+                                loopBodyLines.push(currentBodyLine);
+                            }
+                            j++;
+                        }
+
+                        // Recursively transpile the loop body
+                        const transpiledBody = cookieToC(loopBodyLines.join('\n')); // Pass with actual newlines
+                        // Indent the transpiled body
+                        cLines.push(transpiledBody.split('\n').map(l => '    ' + l).join('\n')); // Use '\n' for inner join
+                        cLines.push('}');
+                        i = j - 1; // Adjust outer loop index to after the processed loop block
+                    } else {
+                        cLines.push('// Error: Malformed loop statement: ' + line);
+                    }
+                }
+                // If statement: if (condition) { ... }
+                else if (line.startsWith('if (') && line.endsWith('{')) {
+                    const conditionMatch = line.match(/^if\s*\((.*)\)\s*\{\s*$/);
+                    if (conditionMatch && conditionMatch[1]) {
+                        let condition = conditionMatch[1].trim();
+                        condition = processExpression(condition); // Process condition for operators
+
+                        cLines.push(`if (${condition}) {`);
+
+                        let braceCount = 1;
+                        let ifBodyLines = [];
+                        let j = i + 1;
+
+                        while (j < lines.length && braceCount > 0) {
+                            const currentBodyLine = lines[j];
+                            if (currentBodyLine.trim() === '{') braceCount++;
+                            else if (currentBodyLine.trim() === '}') braceCount--;
+
+                            if (braceCount > 0) {
+                                ifBodyLines.push(currentBodyLine);
+                            }
+                            j++;
+                        }
+
+                        const transpiledBody = cookieToC(ifBodyLines.join('\n'));
+                        cLines.push(transpiledBody.split('\n').map(l => '    ' + l).join('\n'));
+                        cLines.push('}');
+                        i = j - 1;
+                    } else {
+                        cLines.push('// Error: Malformed if statement: ' + line);
+                    }
+                }
+                // General expression/statement not yet supported
+                else {
+                    cLines.push('// Unsupported: ' + line);
+                }
+                i++; // Increment i at the end of each iteration
+            }
+            return cLines.join('\n'); // Return with actual newlines
+        }
+
+        async function compileAndRun(cookieCode) {
+            const output = document.getElementById('output');
+            output.textContent = 'Compiling...';
+            outputBuffer = '';
+
+            // 1. Transpile Cookie code to C
+            const cCodeBody = cookieToC(cookieCode);
+            const cCode = `#include <stdio.h>\nint main() {\n${cCodeBody}\nreturn 0;\n}`;
+            console.log("Generated C Code:\n", cCode); // Diagnostic Log
+
+            try {
+                // 2. Send C code to backend as before
+                const response = await fetch('/compile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: cCode })
+                });
+
+                if (!response.ok) throw new Error('Compilation failed');
+
+                // 3. Load and run the compiled WASM module
+                const module = await import('./public/hello.js');
+                const instance = await module.default({
+                    print: function(text) {
+                        outputBuffer += text;
+                        console.log("Emscripten print text:", text); // Diagnostic Log
+                    }
+                });
+
+                instance._main();
+                console.log("Final outputBuffer content:\n", outputBuffer); // Diagnostic Log
+                output.innerText = outputBuffer || 'No output generated.'; // Use innerText for correct newline rendering
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        document.getElementById('compile').addEventListener('click', () => {
+            const code = document.getElementById('editor').value;
+            compileAndRun(code);
+        });
+    </script>
+</body>
+</html> 
