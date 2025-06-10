@@ -38,7 +38,6 @@ docker run --rm -it -v "$(pwd)/filename.cook":/cookie_dir/filename.cook cookie
 
 You'll get the output of your code :)
 
-
 ---
 
 ## **Repository**
@@ -153,6 +152,13 @@ Cookie-Compiler/
 [![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/AvinashS.cookie-extension?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=AvinashS.cookie-extension) [ Click to download ]
 
 Cookie also includes a VS Code extension to provide syntax highlighting, code-snippets & IntelliSense.
+
+
+
+https://github.com/user-attachments/assets/74c1558e-02f0-4b6b-80a5-8fda8a34efe4
+
+
+
 
 ### **The repo already includes the .vsix complied package so you can install it simply by running:**
 ```bash
