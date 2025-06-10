@@ -4,40 +4,61 @@ This is a web-based version of the Cookie programming language compiler that run
 
 ## Prerequisites
 
-- Node.js 
-- Emscripten (will be installed by the setup script)
+- Go (https://golang.org/dl/)
+- Emscripten (installed via emsdk)
 
-## Setup
+## Installing Emscripten
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Run the WASM setup script:
-   ```bash
-   ./setup_wasm.sh
-   ```
-
-3. Start the development server:
-   ```bash
-   npm start
-   ```
-
-4. Open your browser to `http://localhost:5173`
-
-
-The compiler is compiled to WebAssembly using Emscripten
-
-
-## Building for Production
-
-```bash
-npm run build
+Manually install Emscripten SDK:
 ```
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+```
+To Activate: 
+
+Linux/MacOS:
+```
+./emsdk install latest 
+./emsdk activate latest
+source ./emsdk_env.sh 
+```
+
+Windows:
+```
+.\emsdk install latest
+.\emsdk activate latest
+.\emsdk_env.ps1
+```
+
+Important:
+Activating Emscripten (emsdk_env.ps1 or emsdk_env.sh) is session-based — it only affects the current terminal session.
+
+You will need to run this command again in any new terminal session where you want to use emcc.
+
+
+
+
+## Running the Server
+
+1. Open a new terminal in the directory where server.go is located.
+
+2.Activate Emscripten in this terminal:
+   ```bash
+   ..\emsdk\emsdk_env.ps1   # Windows PowerShell
+   ../emsdk/emsdk_env.sh    # Linux/macOS
+   ```
+
+3. Run the Go server:
+   ```bash
+   go run server.go
+   ```
+
+4. Open your browser to `http://localhost:8000`
+
 
 ## Project Structure
 
-- `src/` - React components and TypeScript code
+- `index.html` — Web interface that compiles and runs Cookie code in the browser via WebAssembly and JS.
 - `public/` - Static assets and WASM files
-- `build/` - Temporary build directory for WASM compilation
+- `server.go` — Go web server that compiles Cookie source code to WebAssembly via `emcc` and serves the frontend and compiled output.
+- `emsdk/` — Emscripten SDK and toolchain files.
