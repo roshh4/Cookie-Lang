@@ -93,9 +93,9 @@
                 
                 const response = await fetch(ngrokBaseUrl, {
                     method: "POST",
-                    body: code,
+                    body: JSON.stringify({ code: code }),
                     headers: {
-                        "Content-Type": "text/plain",
+                        "Content-Type": "application/json",
                         "Accept": "text/plain"
                     },
                     mode: "cors"
