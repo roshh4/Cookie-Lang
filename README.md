@@ -40,8 +40,7 @@ You'll get the output of your code :)
 
 
 
-https://github.com/user-attachments/assets/23932fc2-8b0e-4b80-91de-e2d38291d24a
-
+https://github.com/user-attachments/assets/8336da76-ac6f-4078-a829-c337bef92fa5
 
 
 ---
@@ -161,7 +160,7 @@ Cookie also includes a VS Code extension to provide syntax highlighting, code-sn
 
 
 
-https://github.com/user-attachments/assets/74c1558e-02f0-4b6b-80a5-8fda8a34efe4
+https://github.com/user-attachments/assets/cdf93115-c6a2-4847-a0cd-f65ce13e6b15
 
 
 
