@@ -34,7 +34,7 @@ ASTNode *root;  // Global AST root.
 %token SIZE
 %token DOT
 %token INT_FROM_STRING FLOAT_FROM_STRING BOOL_FROM_STRING CHAR_FROM_STRING
-
+%token COOKIE
 
 /* Precedence declarations */
 %right ASSIGN IS
@@ -188,6 +188,8 @@ statement:
             { $$ = createASTNode("PRINT", NULL, $3, NULL); }
       | PRINT LPAREN RPAREN SEMICOLON 
             { $$ = createASTNode("PRINT_NEWLINE", NULL, NULL, NULL); }
+    | COOKIE LPAREN RPAREN SEMICOLON
+            { $$ = createASTNode("COOKIE", NULL, NULL, NULL); }
     | INLINE LPAREN expression RPAREN SEMICOLON
           { $$ = createASTNode("INLINE", NULL, $3, NULL); }
     | INT IDENTIFIER SEMICOLON
