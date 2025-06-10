@@ -24,6 +24,10 @@ This go server acts as a tunnel to run Cookie language code in a Docker containe
 
     Now you can send your Cookie code to the public URL. You have two ways:
 
+
+<img width="1361" alt="Screenshot 2025-06-10 at 7 48 25 PM" src="https://github.com/user-attachments/assets/6665f325-f8b0-4dbc-a771-20fe7579edf5" />
+
+
     *   **Send Code Directly (as a string):**
 
         ```bash
