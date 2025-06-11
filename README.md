@@ -5,7 +5,7 @@ It all started with C++. As we were learning language, we found ourselves wonder
 
 Initially, the goal was just to understand how compilers function from the ground up. But as we kept working, the project naturally evolved—not only were we building a compiler, but we were also designing a programming language. We wanted Cookie to be simple, intuitive, and easy to use, making it accessible to anyone interested in programming.
 
-**Checkout Cookie Playground** - https://alphastar-avi.github.io/Cookie-lang/
+**Checkout Cookie Playground** - https://alphastar-avi.github.io/Cookie-lang/  ( under develoapment, requires ngrok URL for now )
 <img width="1361" alt="Screenshot 2025-06-11 at 7 26 29 PM" src="https://github.com/user-attachments/assets/981ad6c8-babe-41f3-8cb1-577a685795e7" />
 
 
