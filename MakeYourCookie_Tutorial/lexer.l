@@ -8,7 +8,7 @@
 %option noyywrap
 
 %%
-"print"                                  { return PRINT; }
+"display"                                  { return PRINT; }
 "plus"                                   { return PLUS; }
 [0-9]+                                   { yylval.str = strdup(yytext); return NUMBER; }
 [a-zA-Z_][a-zA-Z0-9_]*                   { yylval.str = strdup(yytext); return IDENTIFIER; }
