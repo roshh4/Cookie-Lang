@@ -130,7 +130,7 @@ Goofy_complier/
 ## **Build Instructions**
 
 ```
-cd into Main_FrontendAndBackend
+cd Main_FrontendAndBackend
 ```
 
 
@@ -238,7 +238,7 @@ cookie_extension/
 │   └── langli.tmLanguage.json
 ├── src/
 │   └── extension.ts
-└── out/               (generated after compilation)
+└── out/               
 ```
 ### **Develop the features you want**
 
