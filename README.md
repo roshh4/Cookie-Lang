@@ -65,28 +65,74 @@ After cloning, make sure your PATH includes the necessary tool directories.
 ## **File Structure**
 
 ```
-Cookie-Compiler/
-├── filename.cook
-├── lexer.l
-├── parser.y
-├── ast.h
-├── ast.c
-├── runtime.c
-├── codegen.cpp
-├── Dockerfile
-└── cookie_extension/        // VS Code extension folder
-    ├── package.json
-    ├── tsconfig.json
-    ├── language-configuration.json
-    ├── syntaxes/
-    │   └── langli.tmLanguage.json
-    ├── src/
-    │   └── extension.ts
-    └── out/                 (generated after compilation)
+Goofy_complier/
+├── web_cookie_compiler/
+│   ├── public/
+│   ├── src/
+│   ├── server.go
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   └── setup_wasm.sh
+├── Main_FrontendAndBackend/
+│   ├── lang.cook
+│   ├── parser.y
+│   ├── runtime.c
+│   ├── lexer.l
+│   ├── codegen.cpp
+│   ├── ast.c
+│   ├── ast.h
+│   └── cookie.cook
+├── cookie_extension/
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── tsconfig.json
+│   ├── language-configuration.json
+│   ├── syntaxes/
+│   │   └── cookie.tmLanguage.json
+│   ├── src/
+│   │   └── extension.ts
+│   ├── out/
+│   └── snippets/
+├── Cookie_playground_tunnel/
+│   ├── README.md
+│   ├── cookie.cook
+│   ├── tunnel.go
+│   └── index.html
+├── MakeYourCookie_Tutorial/
+│   ├── command.txt
+│   ├── test.cook
+│   ├── lexer.l
+│   ├── cookie.cook/
+│   ├── codegen.cpp
+│   ├── build.sh
+│   ├── parser.y
+│   ├── runtime.c
+│   ├── ast.c
+│   └── ast.h
+├── docs/
+│   └── index.html
+├── configAndCommand/
+│   ├── mac-build.txt
+│   ├── Docker-Command.txt
+│   ├── Dockerfile
+│   ├── makefile
+│   └── win-build.txt
+├── automation/
+│   ├── codebase_backup/
+│   └── cookie
+├── README.md
+├── LICENSE
+└── .gitignore
 ```
 
 
 ## **Build Instructions**
+
+```
+cd into Main_FrontendAndBackend
+```
+
 
 ### **For Mac & Linux**
 
