@@ -746,5 +746,5 @@ fun functionName(parameter_list) {  // Multi-parameter also works
     ```
 
 ---
-### We welcome all feature requests and bug reports, so feel free to open an issue.
+### We welcome all feature requests and bug reports, so feel free to open an issue!
 --- 
